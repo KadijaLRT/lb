@@ -39,7 +39,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   }
 
   return (
-    <div className="fixed inset-0 bg-ink/80 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-4">
+    <div className="fixed inset-0 bg-cream/30 backdrop-blur-sm flex items-end md:items-center justify-center z-50 p-4">
       <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto bg-panel border border-line rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl text-cream">Your details</h2>
