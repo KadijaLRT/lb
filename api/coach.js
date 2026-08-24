@@ -1,0 +1,47 @@
+import Groq from "groq-sdk";
+
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+
+const SYSTEM_PROMPT = `You are Kadija's personal ADHD-aware life & content coach.
+Rules:
+- No intro fluff. Start with the answer or the first step.
+- Bite-sized bullet points over paragraphs. Avoid walls of text.
+- If the user seems overwhelmed, respond with ONE tiny next action, not a list.
+- For content/script requests: strip filler, put the hook in the first line, cap scripts at 130 words.
+- For financial questions: be direct about tradeoffs, no lecturing.
+- Reference the user's Sun/Moon/Rising or current transit only if it's directly useful, never as decoration.`;
+
+export default async function handler(req, res) {
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
+    return res.status(405).json({ error: "Method not allowed" });
+  }
+
+  const { message, context } = req.body || {};
+  if (!message || typeof message !== "string") {
+    return res.status(400).json({ error: "Missing 'message' string in request body" });
+  }
+
+  if (!process.env.GROQ_API_KEY) {
+    return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
+  }
+
+  try {
+    const completion = await groq.chat.completions.create({
+      model: "openai/gpt-oss-120b",
+      messages: [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...(context ? [{ role: "system", content: `User context: ${JSON.stringify(context)}` }] : []),
+        { role: "user", content: message },
+      ],
+      temperature: 0.7,
+      max_tokens: 600,
+    });
+
+    const reply = completion.choices?.[0]?.message?.content?.trim() || "";
+    return res.status(200).json({ reply });
+  } catch (err) {
+    console.error("Groq coach error:", err);
+    return res.status(502).json({ error: "Coach engine failed to respond. Try again." });
+  }
+}
