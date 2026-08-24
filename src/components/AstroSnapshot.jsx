@@ -15,7 +15,7 @@ export default function AstroSnapshot({ sun, moon, rising }) {
     if (sun) params.set("sun", sun);
     if (moon) params.set("moon", moon);
     if (rising) params.set("rising", rising);
-    fetch(`/api/transits.js?${params.toString()}`)
+    fetch(`/api/transits?${params.toString()}`)
       .then((r) => r.json())
       .then(setTransit)
       .catch(() => setTransit(null));

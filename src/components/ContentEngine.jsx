@@ -34,7 +34,7 @@ export default function ContentEngine({ onSaved }) {
     setError("");
     setResult(null);
     try {
-      const res = await fetch("/api/content.js", {
+      const res = await fetch("/api/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brainDump: dump }),

@@ -8,7 +8,7 @@ export default function PlaidLinkButton({ userId, accountId, linked, onLinked, o
 
   useEffect(() => {
     if (!userId || linked) return;
-    fetch("/api/plaid/create-link-token.js", {
+    fetch("/api/plaid/create-link-token", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ userId }),
@@ -22,7 +22,7 @@ export default function PlaidLinkButton({ userId, accountId, linked, onLinked, o
     async (publicToken) => {
       setBusy(true);
       try {
-        await fetch("/api/plaid/exchange-public-token.js", {
+        await fetch("/api/plaid/exchange-public-token", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ publicToken, accountId }),
@@ -40,7 +40,7 @@ export default function PlaidLinkButton({ userId, accountId, linked, onLinked, o
   async function sync() {
     setBusy(true);
     try {
-      const res = await fetch("/api/plaid/sync-transactions.js", {
+      const res = await fetch("/api/plaid/sync-transactions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ accountId }),
