@@ -84,8 +84,11 @@ create table if not exists scripts_and_ideas (
   user_id uuid references user_profile(id) on delete cascade,
   raw_brain_dump text,
   short_form_script text,
+  instagram_caption text,
   x_thread text,
   facebook_post text,
+  execution_steps jsonb default '[]'::jsonb,
+  engagement_tip text,
   word_count int,
   status text default 'draft' check (status in ('draft', 'ready', 'posted')),
   created_at timestamptz default now()
@@ -121,6 +124,9 @@ alter table user_profile add column if not exists birth_utc_offset numeric;
 alter table financial_accounts add column if not exists plaid_item_id text;
 alter table financial_accounts add column if not exists plaid_cursor text;
 alter table astrology_insights add column if not exists for_date date default current_date;
+alter table scripts_and_ideas add column if not exists instagram_caption text;
+alter table scripts_and_ideas add column if not exists execution_steps jsonb default '[]'::jsonb;
+alter table scripts_and_ideas add column if not exists engagement_tip text;
 -- Old unique(user_id, area) constraint conflicts with the new per-date one; drop it if present.
 do $$
 begin

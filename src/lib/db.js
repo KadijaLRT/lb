@@ -104,6 +104,39 @@ export async function getWeekSpend(accountId) {
   return (data || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
 }
 
+export async function getWeeklySpendTrend(accountId, weeks = 6) {
+  if (!supabase) return [];
+  const since = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString();
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("amount, occurred_at")
+    .eq("account_id", accountId)
+    .gte("occurred_at", since)
+    .order("occurred_at", { ascending: true });
+  if (error) throw error;
+
+  // Bucket into weeks, oldest first, ending with the current (partial) week.
+  const buckets = Array.from({ length: weeks }, (_, i) => {
+    const weekStart = new Date(Date.now() - (weeks - i) * 7 * 24 * 60 * 60 * 1000);
+    return { weekStart, total: 0 };
+  });
+
+  for (const t of data || []) {
+    const occurred = new Date(t.occurred_at).getTime();
+    for (let i = buckets.length - 1; i >= 0; i--) {
+      if (occurred >= buckets[i].weekStart.getTime()) {
+        buckets[i].total += Number(t.amount || 0);
+        break;
+      }
+    }
+  }
+
+  return buckets.map((b) => ({
+    label: b.weekStart.toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+    total: +b.total.toFixed(2),
+  }));
+}
+
 export async function logExpense(accountId, { amount, category, note }) {
   if (!supabase) return null;
   const { data, error } = await supabase

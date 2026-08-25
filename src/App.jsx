@@ -25,7 +25,6 @@ export default function App() {
     setMicroTasks,
     saveProfileFields,
     refreshSpend,
-    refreshAccount,
   } = useKadijaData();
 
   const [tab, setTab] = useState("action");
@@ -41,9 +40,12 @@ export default function App() {
     try {
       await saveScript(profile.id, {
         raw_brain_dump: dump,
-        short_form_script: result.short_form_script,
+        short_form_script: result.tiktok_reels_script,
+        instagram_caption: result.instagram_caption,
         x_thread: (result.x_thread || []).join("\n"),
         facebook_post: result.facebook_post,
+        execution_steps: result.execution_steps || [],
+        engagement_tip: result.engagement_tip,
         word_count: result.word_count,
         status: "draft",
       });
@@ -71,8 +73,6 @@ export default function App() {
             account={account}
             weekSpend={weekSpend}
             onLogExpense={handleLogExpense}
-            onLinked={refreshAccount}
-            onSynced={() => refreshSpend(account)}
           />
         )}
         {tab === "blueprint" && <BlueprintTab profile={profile} onSave={saveProfileFields} />}

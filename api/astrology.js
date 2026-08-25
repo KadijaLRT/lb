@@ -39,16 +39,17 @@ Hard rules:
 }
 
 function buildAstrocartographyPrompt(lines, hasLatitude) {
-  return `You are interpreting real, computed astrocartography angles (not a generic horoscope). Below is actual astronomical data: for each planet, its Midheaven (MC) and IC meridian longitudes${hasLatitude ? ", plus Ascendant/Descendant longitudes computed specifically at this person's birth latitude" : ""}.
+  return `You are interpreting real, computed astrocartography angles from actual astronomical data — not a generic horoscope, and not a topic to be cautious about. Below: for each of the 10 planets, its Midheaven (MC) and IC meridian longitudes${hasLatitude ? ", plus Ascendant/Descendant longitudes computed specifically at this person's birth latitude" : " (Ascendant/Descendant unavailable — birth latitude wasn't provided, so lean more heavily on MC/IC)"}.
 
 Rules:
-- State plainly, once, near the top: these are real computed angles but this is NOT a full rendered map — full curved ASC/DSC lines vary by latitude and are best viewed with a dedicated astrocartography mapping tool.
-- Pick the 2-3 most emotionally/practically significant planets for astrocartography purposes (Sun, Moon, Venus, Jupiter, Saturn are usually most relevant) and describe, using your general geography knowledge, the rough longitude band / regions those lines pass through — hedge this clearly as approximate, never claim a precise city.
-- Connect it to something practical: where might this person feel most "themselves," most driven, or should be cautious, based on which planet's line is nearby.
-- 150-220 words, plain prose, no headers or bullet lists.
-- End with one concrete suggestion (e.g. "if you're ever choosing between two cities for work, lean toward the one closer to your Jupiter line").
+- ONE sentence only, right at the start, noting this uses real computed angles but isn't a full rendered map (full ASC/DSC curves vary by latitude). Do not repeat or expand on this caveat again anywhere else in the response — say it once and move on to substance.
+- Cover 4 planets, not 2-3: pick the most practically significant ones from Sun, Moon, Venus, Jupiter, Saturn, Mars based on which have the most notable (closest to 0/90/180) longitude values in the data.
+- For EACH of those 4, name the actual longitude number and use real geography knowledge to identify which specific region/country/city that meridian passes through or near — commit to a real place, don't just say "a region." You can hedge on exact precision without hedging on substance — e.g. "your Jupiter MC sits near 45°E, which runs through the Horn of Africa up through western Russia — Nairobi and Moscow are both roughly on this line" is good; "somewhere in that general area" is not.
+- For each planet covered, say concretely what that placement there tends to mean (MC = public/career direction, IC = home/roots, ASC = personal identity/how you show up, DSC = relationships/partnerships) and connect it to something practically useful.
+- 180-250 words, plain prose, no headers or bullet lists, no repeated caveats.
+- End with one concrete suggestion using an actual place name from the data (e.g. "if you're ever choosing between two cities for work, lean toward the one nearer your Jupiter line").
 
-Computed data:
+Computed data (longitudes in degrees, -180 to 180, east positive):
 ${JSON.stringify(lines)}`;
 }
 
@@ -155,7 +156,7 @@ export default async function handler(req, res) {
         { role: "user", content: userContent },
       ],
       temperature: 0.7,
-      max_tokens: 500,
+      max_tokens: 700,
     });
 
     const content = completion.choices?.[0]?.message?.content?.trim() || "";

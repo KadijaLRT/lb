@@ -3,20 +3,21 @@ import { X, Loader2, Image as ImageIcon } from "lucide-react";
 import { extractSignsFromNotes } from "../lib/extractSigns.js";
 
 const FIELDS = [
-  { key: "name", label: "Name", type: "text" },
-  { key: "pronoun", label: "Pronoun", type: "text" },
-  { key: "birth_date", label: "Birth date", type: "date" },
-  { key: "birth_time", label: "Birth time", type: "time" },
-  { key: "birth_location", label: "Birth location", type: "text" },
-  { key: "birth_lat", label: "Birth latitude (e.g. 18.0 for Kingston)", type: "number" },
-  { key: "birth_lng", label: "Birth longitude (e.g. -76.8, west is negative)", type: "number" },
-  { key: "birth_utc_offset", label: "Timezone at birth, UTC offset (e.g. -5)", type: "number" },
-  { key: "weekly_budget", label: "Weekly budget ($)", type: "number" },
-  { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea" },
+  { key: "name", label: "Name", type: "text", section: "About you" },
+  { key: "pronoun", label: "Pronoun", type: "text", section: "About you" },
+  { key: "birth_date", label: "Birth date", type: "date", section: "Birth data" },
+  { key: "birth_time", label: "Birth time", type: "time", section: "Birth data" },
+  { key: "birth_location", label: "Birth location", type: "text", section: "Birth data" },
+  { key: "birth_lat", label: "Birth latitude (e.g. 18.0 for Kingston)", type: "number", section: "Birth data" },
+  { key: "birth_lng", label: "Birth longitude (e.g. -76.8, west is negative)", type: "number", section: "Birth data" },
+  { key: "birth_utc_offset", label: "Timezone at birth, UTC offset (e.g. -5)", type: "number", section: "Birth data" },
+  { key: "weekly_budget", label: "Weekly budget ($)", type: "number", section: "Finance" },
+  { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea", section: "Goals" },
   {
     key: "natal_chart_notes",
     label: "Full natal chart (paste or upload — Sun/Moon/Rising are pulled from this automatically, no need to enter them separately)",
     type: "textarea",
+    section: "Astrology",
   },
 ];
 
@@ -144,8 +145,11 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
           </button>
         </div>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          {FIELDS.map((f) => (
+          {FIELDS.map((f, i) => (
             <div key={f.key} className="flex flex-col gap-1">
+              {f.section !== FIELDS[i - 1]?.section && (
+                <p className="text-[10px] uppercase tracking-[0.25em] text-clay pt-2 first:pt-0">{f.section}</p>
+              )}
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
               {f.key === "natal_chart_notes" && (
                 <label className="self-start flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-line hover:border-clay cursor-pointer transition-colors mb-1">

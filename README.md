@@ -1,5 +1,74 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## This round: astrocartography fix, spending trends, Settings sections
+- **Astrocartography fixed**: the prompt was over-indexing on hedging/
+  disclaimers ("this isn't a full map," repeated caveats), which is exactly
+  what produces a "generic" feeling response — the model played it safe
+  instead of committing to substance. Rewrote it to require the caveat
+  exactly once, cover 4 planets instead of 2-3, and *commit* to naming real
+  regions/cities near each computed longitude rather than hedging on
+  substance. Also added a UI hint when `birth_lat` isn't set in Settings,
+  since that silently thins the data to MC/IC only (no Ascendant/Descendant)
+  — now visible instead of an invisible quality drop.
+- **Spending trends**: new `SpendingTrend.jsx` bar chart on the Finance tab
+  — last 6 weeks of spending, red bars for over-budget weeks, current week
+  highlighted. Lightweight (plain divs, no chart library added).
+- **Settings reorganized into visible sections**: About you / Birth data /
+  Finance / Goals / Astrology — was a flat list of 11 fields, now grouped
+  with headers so it reads as organized categories.
+
+Re-verified Content Engine (idea generator + 4-platform generation) and
+astrocartography end-to-end with direct handler tests using realistic
+payloads — both reach the real Groq API cleanly with zero code-level
+crashes; only failure in this sandbox is its own network restriction,
+which won't apply on your actual deployment.
+
+## Content Engine overhaul — real per-platform content, idea generation, exact steps
+Previously "Script/X Thread/Facebook" was really just one generic short-form
+script plus two afterthought reformats — no actual Instagram output, no
+proactive ideas (you had to already know what to post), and execution steps
+were static/generic. Rebuilt properly:
+
+- **4 real platforms**: TikTok/Reels (video script), Instagram (a genuinely
+  separate caption — not the script — with 5 hashtags, written for how IG
+  captions actually get read), X Thread (3 bullets, first one a standalone
+  hook), Facebook (conversational, question-forward — FB rewards that
+  differently than TikTok/IG).
+- **New idea generator** (`api/content-ideas.js`, `IdeaGenerator.jsx`): "Need
+  an idea? Get 5 suggestions" — generates 5 *specific angles* (not topics),
+  each with a ready-to-use hook, a format tag (listicle / confession /
+  hot-take / tutorial / pain-point — deliberately varied across the 5), and
+  which platform it'd likely perform best on and why. Tap one to
+  auto-populate the brain dump and generate immediately. Optional seed topic
+  input if you want it pointed somewhere specific.
+- **Exact execution steps, not generic ones**: 4-6 steps per piece, each
+  requiring at most one decision (ADHD-friendly by design) — e.g. actual
+  posting-time windows and an early-engagement action ("reply to the first 5
+  comments within 30 min"), not "post consistently" filler. Checkboxes to
+  work through them.
+- **`engagement_tip`**: one concrete, piece-specific note on the single
+  highest-leverage thing about that content — hook strength, format choice,
+  timing, or a CTA to add. Not generic advice.
+- New Supabase columns: `instagram_caption`, `execution_steps` (jsonb),
+  `engagement_tip` on `scripts_and_ideas` — migration included, safe to
+  re-run.
+
+## Plaid removed
+Bank auto-sync via Plaid was removed — sandbox-only bank linking wasn't
+useful for actual day-to-day tracking, and going to production Plaid access
+requires their approval process. Financial tracking is now manual-only:
+tap "Log spending" on the Finance tab (amount + category), which is the
+same modal that already existed — it's just the primary path now instead of
+a fallback next to a bank-link button. All `api/plaid/*` routes,
+`PlaidLinkButton.jsx`, and the `plaid`/`react-plaid-link` dependencies are
+gone. The `plaid_access_token`/`plaid_item_id`/`plaid_cursor` columns in
+`financial_accounts` are now vestigial — harmless to leave, or drop them
+manually in Supabase if you want a fully clean schema.
+
+Older sections below (Phase 3, the bug audit) still reference Plaid
+historically — that's an accurate record of what was built and later
+removed, not current instructions.
+
 ## Settings: Sun/Moon/Rising auto-derived, no longer separate fields
 Those three fields were redundant with the natal chart upload — you'd be
 entering the same information twice. Removed them from Settings entirely.
@@ -59,7 +128,7 @@ npm install
 ```
 cp .env.example .env
 ```
-Fill in `GROQ_API_KEY` (from console.groq.com). Leave Supabase/Plaid blank for now — the app still runs without them.
+Fill in `GROQ_API_KEY` (from console.groq.com). Leave Supabase blank for now — the app still runs without it.
 
 **3. Run the frontend (1 min)**
 ```
@@ -80,12 +149,7 @@ This serves both the Vite frontend and `/api/coach.js` together on one port — 
 - Open the SQL editor, paste `supabase/schema.sql`, run it
 - Copy your Project URL + anon key into `.env` as `VITE_SUPABASE_URL` / `VITE_SUPABASE_ANON_KEY`
 
-**6. (Optional) Link Plaid sandbox (5 min)**
-Get free sandbox credentials at dashboard.plaid.com, add `PLAID_CLIENT_ID` and
-`PLAID_SECRET` to `.env`, leave `PLAID_ENV=sandbox`. In Plaid's sandbox Link flow,
-use username `user_good` / password `pass_good` for any test bank.
-
-**7. Deploy (5 min)**
+**6. Deploy (5 min)**
 ```
 vercel
 ```

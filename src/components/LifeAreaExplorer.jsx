@@ -86,6 +86,12 @@ export default function LifeAreaExplorer({ profile }) {
         ))}
       </div>
 
+      {active === "astrocartography" && profile?.birth_lat == null && (
+        <p className="text-xs text-muted italic">
+          Add your birth latitude in Settings for a fuller reading (Ascendant/Descendant lines) — right now this can only use Midheaven/IC.
+        </p>
+      )}
+
       {current === undefined && <p className="text-sm text-muted">Loading…</p>}
 
       {current === null && (
