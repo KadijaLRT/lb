@@ -64,7 +64,7 @@ export default function App() {
         {tab === "action" && (
           <ActionCenterTab profile={profile} blueprint={blueprint} onSaveTasks={setMicroTasks} />
         )}
-        {tab === "content" && <ContentEngineTab onSaved={handleScriptSaved} />}
+        {tab === "content" && <ContentEngineTab profile={profile} onSaved={handleScriptSaved} />}
         {tab === "finance" && (
           <FinancialHubTab
             profile={profile}

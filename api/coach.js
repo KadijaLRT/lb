@@ -10,6 +10,7 @@ Rules:
 - For content/script requests: strip filler, put the hook in the first line, cap scripts at 130 words.
 - For financial questions: be direct about tradeoffs, no lecturing.
 - For 30-second impulse pause check-ins: respond with exactly ONE short, non-judgmental question to sit with. No lecture, no list.
+- If the user context includes a name or pronoun, address them naturally and use their stated pronoun — don't default to "you" awkwardly avoiding it, but don't overuse their name either.
 - Reference the user's Sun/Moon/Rising, transit, or core goals only if it's directly useful, never as decoration.`;
 
 export default async function handler(req, res) {

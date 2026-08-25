@@ -21,7 +21,7 @@ function CopyButton({ text }) {
   );
 }
 
-export default function ContentEngine({ onSaved }) {
+export default function ContentEngine({ profile, onSaved }) {
   const [dump, setDump] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -37,7 +37,7 @@ export default function ContentEngine({ onSaved }) {
       const res = await fetch("/api/content", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ brainDump: dump }),
+        body: JSON.stringify({ brainDump: dump, profile }),
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
@@ -90,6 +90,9 @@ export default function ContentEngine({ onSaved }) {
       {result && (
         <div className="flex flex-col gap-3 pt-2 border-t border-line">
           <p className="text-sm text-muted italic">{result.core_message}</p>
+          {result.coaching_tip && (
+            <p className="text-xs text-clay border-l-2 border-clay pl-2">{result.coaching_tip}</p>
+          )}
 
           <div className="flex gap-2">
             {TABS.map((t) => (

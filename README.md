@@ -86,6 +86,44 @@ Then add `GROQ_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in the Ve
      `birth_lng`, `birth_utc_offset` in Settings. Run the migration in
      `schema.sql` before using this.
 
+## Settings wiring audit + Content Engine upgrade
+A full audit found several Settings fields were stored but never actually
+used by the AI anywhere:
+- **name, pronoun, birth_location**: now included in the coach's context
+  (`ActionCenterTab` sends them, `coach.js` is instructed to use pronoun
+  naturally). Previously stored and silently ignored.
+- **core_goals**: was only reaching the daily coach, not the "Go Deeper"
+  astrology readings. Career/Finance readings can now reference your actual
+  goals when relevant — instructed not to force it if it doesn't fit.
+- **birth_lng**: confirmed as intentionally unused — the astrocartography
+  math only needs latitude + UTC offset, not longitude, so this one's fine
+  as a display-only field, not a bug.
+
+**Content Engine was completely generic** — zero awareness of who you are,
+and every piece of generated content vanished the moment you navigated away
+(saved to `scripts_and_ideas`, but nothing ever read it back). Fixed both:
+- `api/content.js` now receives your name/goals/chart as subtle context —
+  used for voice/tone only, never stated outright in the actual content.
+- Each generated piece now includes a `coaching_tip`: one concrete,
+  content-specific posting note, not generic "be consistent" advice.
+- New **"Your queue"** panel (`ContentQueue.jsx`) on the Content tab — browse
+  everything you've generated, tap the status pill to cycle
+  Draft → Ready → Posted, expand to reread the script, delete what you don't
+  want. This is the missing piece that makes `scripts_and_ideas` actually useful.
+
+**On social media integration**: true auto-posting to Instagram/TikTok/X
+needs each platform's own developer API and OAuth approval process (Meta
+Graph API review, TikTok developer approval, X API tiers) — that's a
+separate, heavier project per platform, not a quick wire-up. What's built
+instead is real content *coaching* (personalized generation + a working
+queue) without pretending to post on your behalf.
+
+## Natal chart data on file
+Your full chart (from the screenshots) is documented in the commented-out
+seed insert at the bottom of `schema.sql` — planets, houses, aspects, Part
+of Fortune, South Node. Uncomment and run it, or paste the equivalent text
+into the Settings natal chart notes field directly.
+
 ## Tab-based layout (latest update)
 The app is now a 4-tab structure with a persistent bottom bar, matching the
 updated blueprint:

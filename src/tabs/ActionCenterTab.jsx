@@ -35,9 +35,12 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks }) {
           message,
           context: profile
             ? {
+                name: profile.name,
+                pronoun: profile.pronoun,
                 sun: profile.sun_sign,
                 moon: profile.moon_sign,
                 rising: profile.rising_sign,
+                location: profile.birth_location,
                 goals: profile.core_goals,
                 natal_chart_notes: profile.natal_chart_notes,
               }

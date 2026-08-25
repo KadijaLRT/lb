@@ -155,6 +155,25 @@ export async function saveScript(userId, payload) {
   return data;
 }
 
+export async function updateScriptStatus(scriptId, status) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("scripts_and_ideas")
+    .update({ status })
+    .eq("id", scriptId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteScript(scriptId) {
+  if (!supabase) return null;
+  const { error } = await supabase.from("scripts_and_ideas").delete().eq("id", scriptId);
+  if (error) throw error;
+  return true;
+}
+
 export async function listScripts(userId, limit = 10) {
   if (!supabase) return [];
   const { data, error } = await supabase

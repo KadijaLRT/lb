@@ -2,7 +2,7 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const SYSTEM_PROMPT = `You are Kadija's content repurposing engine. Turn a rambling brain dump into tight, platform-ready content.
+const SYSTEM_PROMPT = `You are Kadija's content repurposing engine AND content coach. Turn a rambling brain dump into tight, platform-ready content, then coach the delivery.
 
 Hard rules:
 - Strip all filler, setups, throat-clearing, and long intros.
@@ -10,6 +10,8 @@ Hard rules:
 - Short-form script hard cap: 130 words.
 - X thread: exactly 3 punchy bullet points, no more.
 - Facebook post: short, plain-spoken, max 80 words.
+- If the person's context (name, goals, natal chart) is given, let it inform tone/voice ONLY if genuinely useful — e.g. a Leo Sun/Mercury person often reads well with a bold, direct voice. Never mention astrology explicitly in the actual content output, and never force a connection to their goals if it doesn't fit.
+- coaching_tip: one sentence of concrete platform-posting advice specific to THIS piece of content (e.g. best format choice, a timing/cadence note, or a hook improvement) — not generic "post consistently" advice.
 - Never explain what you did. Output ONLY the JSON described below, nothing else, no markdown fences.
 
 Return strict JSON with this exact shape:
@@ -18,7 +20,8 @@ Return strict JSON with this exact shape:
   "short_form_script": "string, max 130 words, hook first line",
   "x_thread": ["bullet 1", "bullet 2", "bullet 3"],
   "facebook_post": "string, max 80 words",
-  "word_count": <int, word count of short_form_script>
+  "word_count": <int, word count of short_form_script>,
+  "coaching_tip": "one sentence, specific to this piece"
 }`;
 
 // Some models/providers ignore response_format or wrap JSON in prose or
@@ -43,7 +46,7 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { brainDump } = req.body || {};
+  const { brainDump, profile } = req.body || {};
   if (!brainDump || typeof brainDump !== "string") {
     return res.status(400).json({ error: "Missing 'brainDump' string in request body" });
   }
@@ -52,12 +55,24 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
   }
 
+  const contextLines = profile
+    ? [
+        profile.name && `Name: ${profile.name}`,
+        profile.core_goals && `Current goals: ${profile.core_goals}`,
+        (profile.sun_sign || profile.moon_sign) &&
+          `Chart: Sun ${profile.sun_sign || "?"}, Moon ${profile.moon_sign || "?"}, Rising ${profile.rising_sign || "?"}`,
+      ]
+        .filter(Boolean)
+        .join("\n")
+    : "";
+
   let completion;
   try {
     completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
+        ...(contextLines ? [{ role: "system", content: `Creator context (use subtly, never state directly):\n${contextLines}` }] : []),
         { role: "user", content: brainDump },
       ],
       temperature: 0.8,

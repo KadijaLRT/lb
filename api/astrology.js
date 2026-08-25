@@ -18,6 +18,7 @@ ${AREA_FOCUS[area]}
 Rules:
 - 150-220 words, plain prose, no headers or bullet lists.
 - Reference at least 2 specific natal placements/aspects AND at least 1 specific transiting placement from today's data.
+- If the person's stated goals are given and genuinely relevant to this life area (especially for career/finance), connect the reading to one of those goals concretely. Don't force it if it doesn't fit.
 - End with one concrete, actionable line for today or this week specifically — not vague encouragement.
 - Never invent placements not present in the data given. If natal chart data is thin, work with Sun/Moon/Rising and say so rather than fabricating detail.`;
 }
@@ -86,6 +87,7 @@ export default async function handler(req, res) {
         profile?.sun_sign && `Sun: ${profile.sun_sign}`,
         profile?.moon_sign && `Moon: ${profile.moon_sign}`,
         profile?.rising_sign && `Rising: ${profile.rising_sign}`,
+        profile?.core_goals && `Their stated goals right now: ${profile.core_goals}`,
         profile?.natal_chart_notes && `Full chart notes: ${profile.natal_chart_notes}`,
       ]
         .filter(Boolean)
