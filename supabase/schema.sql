@@ -17,6 +17,7 @@ create table if not exists user_profile (
   rising_sign text,
   weekly_budget numeric default 0,
   core_goals text,
+  natal_chart_notes text,
   created_at timestamptz default now()
 );
 
@@ -59,6 +60,19 @@ create table if not exists transactions (
   occurred_at timestamptz default now()
 );
 
+-- Cached deep-dive astrology readings, one per life area, regenerated on demand
+create table if not exists astrology_insights (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references user_profile(id) on delete cascade,
+  area text not null check (area in ('career', 'friendships', 'love', 'finance', 'astrocartography')),
+  content text,
+  updated_at timestamptz default now(),
+  unique (user_id, area)
+);
+
+alter table astrology_insights enable row level security;
+create policy "allow all - phase1" on astrology_insights for all using (true) with check (true);
+
 -- Scripts and ideas: content engine output
 create table if not exists scripts_and_ideas (
   id uuid primary key default uuid_generate_v4(),
@@ -75,12 +89,26 @@ create table if not exists scripts_and_ideas (
 -- Optional: seed your profile with the natal chart data already on file
 -- (Kingston, Jamaica, 08/06/1994 09:18 — Sun Leo, Moon Leo, Rising Libra).
 -- Uncomment and run once if you'd rather not fill this in via the UI later.
--- insert into user_profile (name, pronoun, birth_date, birth_time, birth_location, sun_sign, moon_sign, rising_sign, weekly_budget)
--- values ('K', 'She', '1994-08-06', '09:18', 'Kingston, Jamaica', 'Leo', 'Leo', 'Libra', 200);
+-- insert into user_profile (name, pronoun, birth_date, birth_time, birth_location, sun_sign, moon_sign, rising_sign, weekly_budget, natal_chart_notes)
+-- values (
+--   'K', 'She', '1994-08-06', '09:18', 'Kingston, Jamaica', 'Leo', 'Leo', 'Libra', 200,
+--   'Sun 13°54 Leo (XI). Moon 4°16 Leo (XI). Mercury 6°48 Leo (XI). Venus 28°56 Virgo (XII). ' ||
+--   'Mars 23°15 Gemini (IX). Jupiter 6°35 Scorpio (II). Saturn 10°53 Pisces R (VI). ' ||
+--   'Uranus 23°33 Capricorn R (IV). Neptune 21°22 Capricorn R (IV). Pluto 25°18 Scorpio (II). ' ||
+--   'Lilith 13°27 Taurus (VIII). N Node 19°49 Scorpio (II). Ascendant Libra 2°28. MC Cancer 2°22. ' ||
+--   'Houses (Placidus): II Scorpio, III Sagittarius, IV Capricorn, V Aquarius, VI Pisces, VII Aries, ' ||
+--   'VIII Taurus, IX Gemini, X Cancer, XI Leo, XII Virgo. ' ||
+--   'Key aspects: Sun conjunct Moon (43), Sun conjunct Mercury (315), Sun square Lilith (-139), ' ||
+--   'Moon conjunct Mercury (508), Moon square Jupiter (-86), Moon sextile ASC (115), ' ||
+--   'Venus conjunct ASC (90), Venus square Mars (-3), Venus trine Uranus (16), Venus sextile Pluto (33), ' ||
+--   'Mars conjunct MC (21), Jupiter trine Saturn (42), Jupiter opposition Lilith (-24), Jupiter trine MC (24), ' ||
+--   'Uranus conjunct Neptune (156), Uranus sextile Pluto (78), Pluto conjunct N Node (0).'
+-- );
 
 -- Migrations for existing databases (safe to re-run — no-ops if columns exist)
 alter table daily_blueprint add column if not exists micro_tasks jsonb default '[]'::jsonb;
 alter table user_profile add column if not exists core_goals text;
+alter table user_profile add column if not exists natal_chart_notes text;
 alter table financial_accounts add column if not exists plaid_item_id text;
 alter table financial_accounts add column if not exists plaid_cursor text;
 

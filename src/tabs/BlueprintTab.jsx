@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Settings } from "lucide-react";
 import AstroSnapshot from "../components/AstroSnapshot.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
+import LifeAreaExplorer from "../components/LifeAreaExplorer.jsx";
 
 export default function BlueprintTab({ profile, onSave }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -28,6 +29,8 @@ export default function BlueprintTab({ profile, onSave }) {
           {profile?.core_goals || "Nothing set yet — add your life vision notes here so the coach factors them into every response."}
         </p>
       </div>
+
+      <LifeAreaExplorer profile={profile} />
 
       <SettingsModal
         open={settingsOpen}

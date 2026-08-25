@@ -10,9 +10,9 @@ Hard rules:
 - Short-form script hard cap: 130 words.
 - X thread: exactly 3 punchy bullet points, no more.
 - Facebook post: short, plain-spoken, max 80 words.
-- Never explain what you did. Output ONLY the JSON described below, nothing else.
+- Never explain what you did. Output ONLY the JSON described below, nothing else, no markdown fences.
 
-Return strict JSON with this exact shape, no markdown fences:
+Return strict JSON with this exact shape:
 {
   "core_message": "one sentence",
   "short_form_script": "string, max 130 words, hook first line",
@@ -20,6 +20,22 @@ Return strict JSON with this exact shape, no markdown fences:
   "facebook_post": "string, max 80 words",
   "word_count": <int, word count of short_form_script>
 }`;
+
+// Some models/providers ignore response_format or wrap JSON in prose or
+// fences despite instructions. Pull the first {...} block out defensively
+// instead of trusting the raw string to be valid JSON on its own.
+function extractJson(raw) {
+  const fenced = raw.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  const candidate = fenced ? fenced[1] : raw;
+  const start = candidate.indexOf("{");
+  const end = candidate.lastIndexOf("}");
+  if (start === -1 || end === -1 || end < start) return null;
+  try {
+    return JSON.parse(candidate.slice(start, end + 1));
+  } catch {
+    return null;
+  }
+}
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
@@ -36,29 +52,34 @@ export default async function handler(req, res) {
     return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
   }
 
+  let completion;
   try {
-    const completion = await groq.chat.completions.create({
+    completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         { role: "user", content: brainDump },
       ],
       temperature: 0.8,
-      max_tokens: 800,
+      max_tokens: 1200,
       response_format: { type: "json_object" },
     });
-
-    const raw = completion.choices?.[0]?.message?.content?.trim() || "{}";
-    let parsed;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return res.status(502).json({ error: "Content engine returned malformed output. Try again." });
-    }
-
-    return res.status(200).json(parsed);
   } catch (err) {
-    console.error("Groq content error:", err);
-    return res.status(502).json({ error: "Content engine failed to respond. Try again." });
+    // Surface Groq's actual error instead of a bare 502 — this is almost
+    // always an auth, model-name, or rate-limit issue and the message tells
+    // you which.
+    const detail = err?.error?.message || err?.message || "Unknown Groq error";
+    console.error("Groq content API call failed:", detail);
+    return res.status(502).json({ error: `Content engine call failed: ${detail}` });
   }
+
+  const raw = completion.choices?.[0]?.message?.content?.trim() || "";
+  const parsed = extractJson(raw);
+
+  if (!parsed) {
+    console.error("Groq content response was not parseable JSON:", raw.slice(0, 500));
+    return res.status(502).json({ error: "Content engine returned unparseable output. Try again." });
+  }
+
+  return res.status(200).json(parsed);
 }

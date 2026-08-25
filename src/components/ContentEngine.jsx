@@ -39,7 +39,10 @@ export default function ContentEngine({ onSaved }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ brainDump: dump }),
       });
-      if (!res.ok) throw new Error(`Content engine failed (${res.status})`);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Content engine failed (${res.status})`);
+      }
       const data = await res.json();
       setResult(data);
       onSaved?.(dump, data);

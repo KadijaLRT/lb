@@ -39,6 +39,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks }) {
                 moon: profile.moon_sign,
                 rising: profile.rising_sign,
                 goals: profile.core_goals,
+                natal_chart_notes: profile.natal_chart_notes,
               }
             : undefined,
         }),

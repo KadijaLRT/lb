@@ -102,6 +102,32 @@ export async function logExpense(accountId, { amount, category, note }) {
   return data;
 }
 
+export async function getInsight(userId, area) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("astrology_insights")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("area", area)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function saveInsight(userId, area, content) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("astrology_insights")
+    .upsert(
+      { user_id: userId, area, content, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,area" }
+    )
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getTransactions(accountId, limit = 25) {
   if (!supabase) return [];
   const { data, error } = await supabase

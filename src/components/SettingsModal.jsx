@@ -12,11 +12,17 @@ const FIELDS = [
   { key: "rising_sign", label: "Rising sign", type: "text" },
   { key: "weekly_budget", label: "Weekly budget ($)", type: "number" },
   { key: "core_goals", label: "Core goals / life vision", type: "textarea" },
+  {
+    key: "natal_chart_notes",
+    label: "Full natal chart (paste placements, houses, aspects — powers deeper readings below)",
+    type: "textarea",
+  },
 ];
 
 export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -27,6 +33,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
+    setError("");
     try {
       const patch = { ...form };
       delete patch.id;
@@ -34,6 +41,13 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
       if (patch.weekly_budget) patch.weekly_budget = Number(patch.weekly_budget);
       await onSave(patch);
       onClose();
+    } catch (err) {
+      console.error("Settings save failed:", err);
+      setError(
+        err?.message?.includes("column")
+          ? "Save failed — your Supabase table is missing a column. Run the latest supabase/schema.sql migrations."
+          : err?.message || "Save failed. Try again."
+      );
     } finally {
       setSaving(false);
     }
@@ -54,7 +68,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
               {f.type === "textarea" ? (
                 <textarea
-                  rows={3}
+                  rows={f.key === "natal_chart_notes" ? 8 : 3}
                   value={form[f.key] ?? ""}
                   onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
                   className="w-full bg-transparent border border-line rounded-lg p-2 focus:border-clay outline-none text-cream resize-none"
@@ -69,6 +83,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
               )}
             </div>
           ))}
+          {error && <p className="text-sm text-fire">{error}</p>}
           <button
             type="submit"
             disabled={saving}
