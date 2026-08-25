@@ -15,7 +15,9 @@
     "@supabase/supabase-js": "^2.45.0",
     "groq-sdk": "^0.7.0",
     "plaid": "^30.0.0",
-    "react-plaid-link": "^3.5.1"
+    "react-plaid-link": "^3.5.1",
+    "pdf-parse": "^1.1.1",
+    "astronomy-engine": "^2.1.19"
   },
   "devDependencies": {
     "vite": "^5.4.0",

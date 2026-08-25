@@ -102,25 +102,28 @@ export async function logExpense(accountId, { amount, category, note }) {
   return data;
 }
 
-export async function getInsight(userId, area) {
+export async function getInsight(userId, area, forDate) {
   if (!supabase) return null;
+  const date = forDate || new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("astrology_insights")
     .select("*")
     .eq("user_id", userId)
     .eq("area", area)
+    .eq("for_date", date)
     .maybeSingle();
   if (error) throw error;
   return data;
 }
 
-export async function saveInsight(userId, area, content) {
+export async function saveInsight(userId, area, content, forDate) {
   if (!supabase) return null;
+  const date = forDate || new Date().toISOString().slice(0, 10);
   const { data, error } = await supabase
     .from("astrology_insights")
     .upsert(
-      { user_id: userId, area, content, updated_at: new Date().toISOString() },
-      { onConflict: "user_id,area" }
+      { user_id: userId, area, content, for_date: date, updated_at: new Date().toISOString() },
+      { onConflict: "user_id,area,for_date" }
     )
     .select()
     .single();

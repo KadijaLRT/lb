@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Loader2 } from "lucide-react";
+import { X, Loader2, Upload } from "lucide-react";
 
 const FIELDS = [
   { key: "name", label: "Name", type: "text" },
@@ -7,6 +7,9 @@ const FIELDS = [
   { key: "birth_date", label: "Birth date", type: "date" },
   { key: "birth_time", label: "Birth time", type: "time" },
   { key: "birth_location", label: "Birth location", type: "text" },
+  { key: "birth_lat", label: "Birth latitude (e.g. 18.0 for Kingston)", type: "number" },
+  { key: "birth_lng", label: "Birth longitude (e.g. -76.8, west is negative)", type: "number" },
+  { key: "birth_utc_offset", label: "Timezone at birth, UTC offset (e.g. -5)", type: "number" },
   { key: "sun_sign", label: "Sun sign", type: "text" },
   { key: "moon_sign", label: "Moon sign", type: "text" },
   { key: "rising_sign", label: "Rising sign", type: "text" },
@@ -23,12 +26,41 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
+  const [parsingPdf, setParsingPdf] = useState(false);
 
   useEffect(() => {
     if (profile) setForm(profile);
   }, [profile]);
 
   if (!open) return null;
+
+  async function handlePdfUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setParsingPdf(true);
+    setError("");
+    try {
+      const base64 = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result.split(",")[1]);
+        reader.onerror = () => reject(new Error("Couldn't read the file"));
+        reader.readAsDataURL(file);
+      });
+      const res = await fetch("/api/parse-natal-pdf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pdfBase64: base64 }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "PDF parsing failed.");
+      setForm((prev) => ({ ...prev, natal_chart_notes: data.notes }));
+    } catch (err) {
+      setError(err.message || "Couldn't parse that PDF.");
+    } finally {
+      setParsingPdf(false);
+      e.target.value = "";
+    }
+  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -38,7 +70,16 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
       const patch = { ...form };
       delete patch.id;
       delete patch.created_at;
-      if (patch.weekly_budget) patch.weekly_budget = Number(patch.weekly_budget);
+      // Empty strings on date/time/numeric columns make Postgres reject the
+      // WHOLE update, not just that field — coerce blanks to null instead.
+      const NUMERIC_FIELDS = ["weekly_budget", "birth_lat", "birth_lng", "birth_utc_offset"];
+      Object.keys(patch).forEach((key) => {
+        if (patch[key] === "") {
+          patch[key] = null;
+        } else if (NUMERIC_FIELDS.includes(key) && patch[key] != null) {
+          patch[key] = Number(patch[key]);
+        }
+      });
       await onSave(patch);
       onClose();
     } catch (err) {
@@ -66,6 +107,13 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
           {FIELDS.map((f) => (
             <div key={f.key} className="flex flex-col gap-1">
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
+              {f.key === "natal_chart_notes" && (
+                <label className="self-start flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-line hover:border-clay cursor-pointer transition-colors mb-1">
+                  {parsingPdf ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                  {parsingPdf ? "Reading PDF…" : "Upload natal chart PDF instead"}
+                  <input type="file" accept="application/pdf" onChange={handlePdfUpload} className="hidden" disabled={parsingPdf} />
+                </label>
+              )}
               {f.type === "textarea" ? (
                 <textarea
                   rows={f.key === "natal_chart_notes" ? 8 : 3}

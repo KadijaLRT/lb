@@ -45,6 +45,43 @@ vercel
 ```
 Then add `GROQ_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in the Vercel project's Environment Variables settings, and redeploy.
 
+## Latest update: 4 fixes/upgrades
+1. **Settings save bug, actually fixed this time**: an empty `birth_date` or
+   `birth_time` field was sent as `""` to a Postgres `date`/`time` column,
+   which Postgres rejects — and because it's all one UPDATE statement, that
+   ONE bad field silently killed the entire save, including fields like
+   `core_goals` that were perfectly valid. `SettingsModal` now converts blank
+   fields to `null` before saving.
+2. **PDF upload for natal charts**: Settings now has an "Upload natal chart
+   PDF instead" button next to the notes field. It POSTs to
+   `/api/parse-natal-pdf.js`, which extracts text via `pdf-parse` and
+   condenses it into structured chart notes via Groq (falls back to raw
+   extracted text if `GROQ_API_KEY` isn't set). Manual pasting still works too.
+3. **Real ephemeris engine, no API key needed**: swapped the placeholder
+   `TRANSIT_API_KEY` fetch for `astronomy-engine` (`api/_ephemeris.js`) —
+   actual astronomical calculation of every planet's current tropical sign,
+   done locally, for free, no external service. `/api/transits.js` and the
+   "Go deeper" readings both use it now.
+4. **"Go deeper" is now today-specific and includes real astrocartography**:
+   - Career/Friendships/Love/Finance readings now pull *today's* real
+     transiting placements (via the ephemeris engine) alongside your natal
+     chart, and the prompt requires the model to name a specific transit
+     interacting with a specific natal placement — not a generic lifelong
+     summary. Readings are cached per day (`astrology_insights.for_date`) and
+     a new button appears each day rather than showing yesterday's text forever.
+   - **Astrocartography now uses real computed angles.** `api/_ephemeris.js`
+     computes actual MC/IC meridians (exact) and ASC/DSC longitudes at your
+     specific birth latitude (a real point, not a full curve) using proper
+     spherical astronomy (hour-angle formula from RA/Dec/latitude), from your
+     birth date/time/UTC offset. There's also a standalone
+     `/api/astrocartography.js` endpoint you can call directly. Honest limit:
+     full ASC/DSC *curves* (which vary continuously by latitude) aren't
+     rendered — the AI reading says this plainly and points to a dedicated
+     map tool for that level of precision.
+   - **New required fields** for astrocartography to work: `birth_lat`,
+     `birth_lng`, `birth_utc_offset` in Settings. Run the migration in
+     `schema.sql` before using this.
+
 ## Tab-based layout (latest update)
 The app is now a 4-tab structure with a persistent bottom bar, matching the
 updated blueprint:

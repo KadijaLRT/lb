@@ -15,10 +15,11 @@ export default function LifeAreaExplorer({ profile }) {
   const [content, setContent] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const today = new Date().toISOString().slice(0, 10);
 
   useEffect(() => {
     if (!profile?.id || content[active] !== undefined) return;
-    getInsight(profile.id, active)
+    getInsight(profile.id, active, today)
       .then((row) => setContent((c) => ({ ...c, [active]: row?.content || null })))
       .catch(() => setContent((c) => ({ ...c, [active]: null })));
   }, [active, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -36,7 +37,7 @@ export default function LifeAreaExplorer({ profile }) {
       if (!res.ok) throw new Error(data.error || "Reading failed.");
       setContent((c) => ({ ...c, [active]: data.content }));
       if (profile?.id) {
-        saveInsight(profile.id, active, data.content).catch((e) => console.error(e));
+        saveInsight(profile.id, active, data.content, today).catch((e) => console.error(e));
       }
     } catch (err) {
       setError(err.message || "Something went wrong.");
@@ -49,7 +50,10 @@ export default function LifeAreaExplorer({ profile }) {
 
   return (
     <div className="border border-line rounded-2xl p-4 flex flex-col gap-4">
-      <span className="text-xs uppercase tracking-[0.2em] text-muted">Go deeper</span>
+      <div className="flex items-center justify-between">
+        <span className="text-xs uppercase tracking-[0.2em] text-muted">Go deeper — today</span>
+        <span className="text-xs text-muted">{today}</span>
+      </div>
 
       <div className="flex flex-wrap gap-2">
         {AREAS.map(({ key, label, icon: Icon }) => (
@@ -84,7 +88,7 @@ export default function LifeAreaExplorer({ profile }) {
         className="self-start px-3 py-1.5 rounded-full border border-line hover:border-clay text-sm flex items-center gap-2 disabled:opacity-40"
       >
         {loading ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
-        {current ? "Regenerate" : "Generate reading"}
+        {current ? "Regenerate for today" : "Generate today's reading"}
       </button>
     </div>
   );

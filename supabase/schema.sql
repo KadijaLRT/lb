@@ -12,6 +12,9 @@ create table if not exists user_profile (
   birth_date date,
   birth_time time,
   birth_location text,
+  birth_lat numeric,
+  birth_lng numeric,
+  birth_utc_offset numeric,
   sun_sign text,
   moon_sign text,
   rising_sign text,
@@ -66,8 +69,9 @@ create table if not exists astrology_insights (
   user_id uuid references user_profile(id) on delete cascade,
   area text not null check (area in ('career', 'friendships', 'love', 'finance', 'astrocartography')),
   content text,
+  for_date date default current_date,
   updated_at timestamptz default now(),
-  unique (user_id, area)
+  unique (user_id, area, for_date)
 );
 
 alter table astrology_insights enable row level security;
@@ -89,9 +93,10 @@ create table if not exists scripts_and_ideas (
 -- Optional: seed your profile with the natal chart data already on file
 -- (Kingston, Jamaica, 08/06/1994 09:18 — Sun Leo, Moon Leo, Rising Libra).
 -- Uncomment and run once if you'd rather not fill this in via the UI later.
--- insert into user_profile (name, pronoun, birth_date, birth_time, birth_location, sun_sign, moon_sign, rising_sign, weekly_budget, natal_chart_notes)
+-- insert into user_profile (name, pronoun, birth_date, birth_time, birth_location, birth_lat, birth_lng, birth_utc_offset, sun_sign, moon_sign, rising_sign, weekly_budget, natal_chart_notes)
 -- values (
---   'K', 'She', '1994-08-06', '09:18', 'Kingston, Jamaica', 'Leo', 'Leo', 'Libra', 200,
+--   'K', 'She', '1994-08-06', '09:18', 'Kingston, Jamaica', 18.0000, -76.8000, -5,
+--   'Leo', 'Leo', 'Libra', 200,
 --   'Sun 13°54 Leo (XI). Moon 4°16 Leo (XI). Mercury 6°48 Leo (XI). Venus 28°56 Virgo (XII). ' ||
 --   'Mars 23°15 Gemini (IX). Jupiter 6°35 Scorpio (II). Saturn 10°53 Pisces R (VI). ' ||
 --   'Uranus 23°33 Capricorn R (IV). Neptune 21°22 Capricorn R (IV). Pluto 25°18 Scorpio (II). ' ||
@@ -109,8 +114,23 @@ create table if not exists scripts_and_ideas (
 alter table daily_blueprint add column if not exists micro_tasks jsonb default '[]'::jsonb;
 alter table user_profile add column if not exists core_goals text;
 alter table user_profile add column if not exists natal_chart_notes text;
+alter table user_profile add column if not exists birth_lat numeric;
+alter table user_profile add column if not exists birth_lng numeric;
+alter table user_profile add column if not exists birth_utc_offset numeric;
 alter table financial_accounts add column if not exists plaid_item_id text;
 alter table financial_accounts add column if not exists plaid_cursor text;
+alter table astrology_insights add column if not exists for_date date default current_date;
+-- Old unique(user_id, area) constraint conflicts with the new per-date one; drop it if present.
+do $$
+begin
+  if exists (
+    select 1 from pg_constraint where conname = 'astrology_insights_user_id_area_key'
+  ) then
+    alter table astrology_insights drop constraint astrology_insights_user_id_area_key;
+  end if;
+end $$;
+alter table astrology_insights drop constraint if exists astrology_insights_user_id_area_for_date_key;
+alter table astrology_insights add constraint astrology_insights_user_id_area_for_date_key unique (user_id, area, for_date);
 
 -- Permissive RLS for single-user Phase 1 (tighten later)
 alter table user_profile enable row level security;
