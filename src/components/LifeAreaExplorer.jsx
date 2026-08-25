@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Briefcase, Users, Heart, Wallet, Globe, RefreshCw, Loader2 } from "lucide-react";
 import { getInsight, saveInsight } from "../lib/db.js";
+import { localDateString } from "../lib/date.js";
 
 const AREAS = [
   { key: "career", label: "Career", icon: Briefcase },
@@ -15,7 +16,7 @@ export default function LifeAreaExplorer({ profile }) {
   const [content, setContent] = useState({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
 
   useEffect(() => {
     if (!profile?.id || content[active] !== undefined) return;
@@ -31,9 +32,19 @@ export default function LifeAreaExplorer({ profile }) {
       const res = await fetch("/api/astrology", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ area: active, profile }),
+        body: JSON.stringify({ area: active, profile, for_date: today }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          res.ok
+            ? "Server returned an unreadable response."
+            : `Server error (${res.status}): ${raw.slice(0, 200) || "no details"}`
+        );
+      }
       if (!res.ok) throw new Error(data.error || "Reading failed.");
       setContent((c) => ({ ...c, [active]: data.content }));
       if (profile?.id) {

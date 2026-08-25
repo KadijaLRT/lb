@@ -1,4 +1,5 @@
 import { supabase } from "./supabase.js";
+import { localDateString } from "./date.js";
 
 // Phase 1 is single-user, so we always work with the first row in user_profile.
 // Swap for auth.uid()-scoped queries once multi-user/auth is added.
@@ -36,7 +37,7 @@ export async function updateProfile(id, patch) {
 
 export async function getTodayBlueprint(userId) {
   if (!supabase) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
   const { data, error } = await supabase
     .from("daily_blueprint")
     .select("*")
@@ -49,7 +50,7 @@ export async function getTodayBlueprint(userId) {
 
 export async function upsertTodayBlueprint(userId, patch) {
   if (!supabase) return null;
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDateString();
   const { data, error } = await supabase
     .from("daily_blueprint")
     .upsert({ user_id: userId, date: today, ...patch }, { onConflict: "user_id,date" })
@@ -104,7 +105,7 @@ export async function logExpense(accountId, { amount, category, note }) {
 
 export async function getInsight(userId, area, forDate) {
   if (!supabase) return null;
-  const date = forDate || new Date().toISOString().slice(0, 10);
+  const date = forDate || localDateString();
   const { data, error } = await supabase
     .from("astrology_insights")
     .select("*")
@@ -118,7 +119,7 @@ export async function getInsight(userId, area, forDate) {
 
 export async function saveInsight(userId, area, content, forDate) {
   if (!supabase) return null;
-  const date = forDate || new Date().toISOString().slice(0, 10);
+  const date = forDate || localDateString();
   const { data, error } = await supabase
     .from("astrology_insights")
     .upsert(

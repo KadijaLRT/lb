@@ -75,6 +75,7 @@ create table if not exists astrology_insights (
 );
 
 alter table astrology_insights enable row level security;
+drop policy if exists "allow all - phase1" on astrology_insights;
 create policy "allow all - phase1" on astrology_insights for all using (true) with check (true);
 
 -- Scripts and ideas: content engine output
@@ -139,8 +140,13 @@ alter table financial_accounts enable row level security;
 alter table transactions enable row level security;
 alter table scripts_and_ideas enable row level security;
 
+drop policy if exists "allow all - phase1" on user_profile;
 create policy "allow all - phase1" on user_profile for all using (true) with check (true);
+drop policy if exists "allow all - phase1" on daily_blueprint;
 create policy "allow all - phase1" on daily_blueprint for all using (true) with check (true);
+drop policy if exists "allow all - phase1" on financial_accounts;
 create policy "allow all - phase1" on financial_accounts for all using (true) with check (true);
+drop policy if exists "allow all - phase1" on transactions;
 create policy "allow all - phase1" on transactions for all using (true) with check (true);
+drop policy if exists "allow all - phase1" on scripts_and_ideas;
 create policy "allow all - phase1" on scripts_and_ideas for all using (true) with check (true);

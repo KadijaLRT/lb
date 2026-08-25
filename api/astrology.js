@@ -1,5 +1,4 @@
 import Groq from "groq-sdk";
-import { currentPlacements, astrocartographyChart } from "./_ephemeris.js";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -9,13 +8,6 @@ const AREA_FOCUS = {
   love: "Focus on the 7th and 5th houses, Venus, Mars, and the Moon. Cover attraction patterns, what they need to feel secure in a relationship, and a real (not flattering) blind spot.",
   finance: "Focus on the 2nd and 8th houses, Jupiter, and Saturn. Cover their natural relationship to money — earning style, risk tolerance, spending triggers — and one concrete, practical caution.",
 };
-
-function todayTransitLine() {
-  const p = currentPlacements(new Date());
-  return Object.entries(p)
-    .map(([body, { sign }]) => `${body}: ${sign}`)
-    .join(", ");
-}
 
 function buildStandardPrompt(area) {
   return `You are an astrology interpreter working from a real natal chart AND today's real transiting positions. Be specific — reference actual natal placements by name, and explicitly say how at least one of TODAY's transits is activating or interacting with the relevant natal placement for this life area. This must read as a reading for RIGHT NOW, not a generic lifelong personality summary.
@@ -43,63 +35,88 @@ Computed data:
 ${JSON.stringify(lines)}`;
 }
 
+// This entire handler is wrapped so that literally any failure — a bad
+// import, a math error, a Groq outage — still comes back as valid JSON with
+// a real status code. Letting an exception escape here means Vercel/Node
+// returns a plain-text crash page, which breaks res.json() on the frontend
+// with an opaque parse error instead of showing the actual problem.
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { area, profile } = req.body || {};
-  const validAreas = [...Object.keys(AREA_FOCUS), "astrocartography"];
-  if (!area || !validAreas.includes(area)) {
-    return res.status(400).json({ error: `Missing or invalid 'area'. Must be one of: ${validAreas.join(", ")}` });
-  }
-  if (!process.env.GROQ_API_KEY) {
-    return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
-  }
-
-  let systemPrompt;
-  let userContent = "Generate the reading from the computed data above.";
-
-  if (area === "astrocartography") {
-    if (!profile?.birth_date || profile?.birth_utc_offset == null) {
-      return res.status(400).json({
-        error: "Astrocartography needs your birth date and UTC offset — add them in Settings first.",
-      });
-    }
-    const time = profile.birth_time || "12:00";
-    const localDate = new Date(`${profile.birth_date}T${time}:00`);
-    if (Number.isNaN(localDate.getTime())) {
-      return res.status(400).json({ error: "Couldn't parse your stored birth date/time." });
-    }
-    const birthUTC = new Date(localDate.getTime() - Number(profile.birth_utc_offset) * 60 * 60 * 1000);
-    let lines;
-    try {
-      lines = astrocartographyChart(birthUTC, profile.birth_lat != null ? Number(profile.birth_lat) : null);
-    } catch (err) {
-      console.error("Astrocartography computation failed:", err.message);
-      return res.status(500).json({ error: "Couldn't compute astrocartography lines." });
-    }
-    systemPrompt = buildAstrocartographyPrompt(lines, profile.birth_lat != null);
-  } else {
-    const chartLines = [
-      profile?.sun_sign && `Sun: ${profile.sun_sign}`,
-      profile?.moon_sign && `Moon: ${profile.moon_sign}`,
-      profile?.rising_sign && `Rising: ${profile.rising_sign}`,
-      profile?.natal_chart_notes && `Full chart notes: ${profile.natal_chart_notes}`,
-    ]
-      .filter(Boolean)
-      .join("\n");
-
-    if (!chartLines) {
-      return res.status(400).json({ error: "No chart data on this profile yet. Add Sun/Moon/Rising in Settings first." });
-    }
-
-    systemPrompt = buildStandardPrompt(area);
-    userContent = `Natal chart data:\n${chartLines}\n\nToday's transiting placements:\n${todayTransitLine()}`;
-  }
-
   try {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const { area, profile, for_date } = req.body || {};
+    const validAreas = [...Object.keys(AREA_FOCUS), "astrocartography"];
+    if (!area || !validAreas.includes(area)) {
+      return res.status(400).json({ error: `Missing or invalid 'area'. Must be one of: ${validAreas.join(", ")}` });
+    }
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
+    }
+
+    // Dynamic import so a broken astronomy-engine install/bundle produces a
+    // clean JSON error instead of crashing the function at module-load time.
+    let ephemeris;
+    try {
+      ephemeris = await import("./_ephemeris.js");
+    } catch (err) {
+      console.error("Ephemeris module failed to load:", err.message);
+      return res.status(500).json({ error: `Ephemeris engine unavailable: ${err.message}` });
+    }
+
+    let systemPrompt;
+    let userContent = "Generate the reading from the computed data above.";
+
+    if (area === "astrocartography") {
+      if (!profile?.birth_date || profile?.birth_utc_offset == null) {
+        return res.status(400).json({
+          error: "Astrocartography needs your birth date and UTC offset — add them in Settings first.",
+        });
+      }
+      const time = profile.birth_time || "12:00";
+      const localDate = new Date(`${profile.birth_date}T${time}:00`);
+      if (Number.isNaN(localDate.getTime())) {
+        return res.status(400).json({ error: "Couldn't parse your stored birth date/time." });
+      }
+      const birthUTC = new Date(localDate.getTime() - Number(profile.birth_utc_offset) * 60 * 60 * 1000);
+
+      let lines;
+      try {
+        lines = ephemeris.astrocartographyChart(birthUTC, profile.birth_lat != null ? Number(profile.birth_lat) : null);
+      } catch (err) {
+        console.error("Astrocartography computation failed:", err.message);
+        return res.status(500).json({ error: `Couldn't compute astrocartography lines: ${err.message}` });
+      }
+      systemPrompt = buildAstrocartographyPrompt(lines, profile.birth_lat != null);
+    } else {
+      const chartLines = [
+        profile?.sun_sign && `Sun: ${profile.sun_sign}`,
+        profile?.moon_sign && `Moon: ${profile.moon_sign}`,
+        profile?.rising_sign && `Rising: ${profile.rising_sign}`,
+        profile?.natal_chart_notes && `Full chart notes: ${profile.natal_chart_notes}`,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      if (!chartLines) {
+        return res.status(400).json({ error: "No chart data on this profile yet. Add Sun/Moon/Rising in Settings first." });
+      }
+
+      let transitLine;
+      try {
+        const p = ephemeris.currentPlacements(new Date());
+        transitLine = Object.entries(p).map(([body, { sign }]) => `${body}: ${sign}`).join(", ");
+      } catch (err) {
+        console.error("Current transit computation failed:", err.message);
+        transitLine = "(unavailable — proceeding with natal data only)";
+      }
+
+      systemPrompt = buildStandardPrompt(area);
+      userContent = `Natal chart data:\n${chartLines}\n\nToday's transiting placements:\n${transitLine}`;
+    }
+
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [
@@ -111,10 +128,10 @@ export default async function handler(req, res) {
     });
 
     const content = completion.choices?.[0]?.message?.content?.trim() || "";
-    return res.status(200).json({ area, content, for_date: new Date().toISOString().slice(0, 10) });
+    return res.status(200).json({ area, content, for_date: for_date || new Date().toISOString().slice(0, 10) });
   } catch (err) {
-    const detail = err?.error?.message || err?.message || "Unknown Groq error";
-    console.error("Astrology insight error:", detail);
-    return res.status(502).json({ error: `Reading failed: ${detail}` });
+    const detail = err?.error?.message || err?.message || "Unknown server error";
+    console.error("Astrology endpoint crashed:", err);
+    return res.status(500).json({ error: `Reading failed: ${detail}` });
   }
 }
