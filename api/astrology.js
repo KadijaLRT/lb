@@ -162,6 +162,7 @@ export default async function handler(req, res) {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
+      reasoning_effort: "low",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userContent },

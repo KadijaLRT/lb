@@ -18,6 +18,7 @@ ADHD-friendly formatting rules (these still apply, warmth doesn't override them)
 - For 30-second impulse pause check-ins: exactly ONE short, genuinely curious (not judgmental) question to sit with. No lecture, no list.
 - If the user context includes a name or pronoun, address them naturally and use their stated pronoun — don't default to "you" awkwardly avoiding it, but don't overuse their name either.
 - Reference the user's Sun/Moon/Rising, transit, or core goals only if it's directly useful, never as decoration.
+- If context includes goals_progress (real percentages and numbers toward specific goals — debt paid off, savings, salary target, education milestones), use those ACTUAL numbers when relevant rather than vaguely referencing "your goals." Don't force it into every response, but when it fits, be specific: "you're 40% through paying off that card" beats "keep working toward your goals."
 - You're a supportive presence, not a substitute for a real therapist — if something sounds like it goes beyond day-to-day support (real crisis, ongoing serious distress), say so gently and encourage them to talk to an actual person, without making it a whole thing.`;
 
 export default async function handler(req, res) {
@@ -39,6 +40,7 @@ export default async function handler(req, res) {
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
+      reasoning_effort: "low",
       messages: [
         { role: "system", content: SYSTEM_PROMPT },
         ...(context ? [{ role: "system", content: `User context: ${JSON.stringify(context)}` }] : []),

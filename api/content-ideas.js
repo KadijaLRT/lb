@@ -56,6 +56,7 @@ export default async function handler(req, res) {
     try {
       completion = await groq.chat.completions.create({
         model: "openai/gpt-oss-120b",
+        reasoning_effort: "low",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
           {

@@ -5,6 +5,7 @@ import ExpenseModal from "../components/ExpenseModal.jsx";
 import ImpulsePause from "../components/ImpulsePause.jsx";
 import TransactionsAccordion from "../components/TransactionsAccordion.jsx";
 import SpendingTrend from "../components/SpendingTrend.jsx";
+import JobApplicationTracker from "../components/JobApplicationTracker.jsx";
 
 export default function FinancialHubTab({ profile, account, weekSpend, onLogExpense }) {
   const [modalOpen, setModalOpen] = useState(false);
@@ -41,6 +42,8 @@ export default function FinancialHubTab({ profile, account, weekSpend, onLogExpe
       />
 
       {account && <SpendingTrend accountId={account.id} weeklyBudget={weeklyBudget} refreshKey={syncTick} />}
+
+      <JobApplicationTracker profile={profile} />
 
       {account && <TransactionsAccordion accountId={account.id} refreshKey={syncTick} />}
 

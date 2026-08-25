@@ -104,6 +104,97 @@ export async function getWeekSpend(accountId) {
   return (data || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
 }
 
+export async function listGoals(userId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("goals")
+    .select("*")
+    .eq("user_id", userId)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addGoal(userId, goal) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("goals")
+    .insert({ user_id: userId, ...goal })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateGoal(id, patch) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("goals")
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteGoal(id) {
+  if (!supabase) return null;
+  const { error } = await supabase.from("goals").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
+export async function listJobApplications(userId) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("job_applications")
+    .select("*")
+    .eq("user_id", userId)
+    .order("applied_date", { ascending: false });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addJobApplication(userId, { company, role, status, applied_date, expected_salary, job_url, notes }) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("job_applications")
+    .insert({
+      user_id: userId,
+      company,
+      role,
+      status: status || "applied",
+      applied_date: applied_date || localDateString(),
+      expected_salary: expected_salary || null,
+      job_url: job_url || null,
+      notes: notes || null,
+    })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateJobApplicationStatus(id, status) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("job_applications")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteJobApplication(id) {
+  if (!supabase) return null;
+  const { error } = await supabase.from("job_applications").delete().eq("id", id);
+  if (error) throw error;
+  return true;
+}
+
 export async function getWeeklySpendTrend(accountId, weeks = 6) {
   if (!supabase) return [];
   const since = new Date(Date.now() - weeks * 7 * 24 * 60 * 60 * 1000).toISOString();

@@ -1,5 +1,69 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## New: Structured goal tracking system (Blueprint tab)
+Replaces the static goals paragraph with real, trackable progress across
+4 goal types — new "Goal progress" section on the Blueprint tab, below
+Core Goals (which stays as freeform notes for context).
+
+- **Debt payoff**: enter what you owe now, log payments as you make them,
+  progress bar counts down to $0.
+- **Savings**: enter a target and (optionally) what you've already saved,
+  log deposits, progress bar counts up.
+- **Salary**: enter a target salary — progress is computed automatically
+  from your Job Applications tracker (best offer if you have one, else
+  your highest-expected-salary application). No manual updates needed;
+  apply to jobs and this moves on its own.
+- **Education**: milestone checklist (Applied → Accepted → Enrolled →
+  Coursework → Graduated) instead of a number — tap to check off as you go.
+- **Milestone badges**: "Off to a start" / "Halfway there" / "Almost
+  there" / "🎉 Goal complete!" at 25/50/75/100%, shown right on the card.
+- **Connected to the daily coach**: `ActionCenterTab` now fetches goal
+  progress and feeds real numbers (not just goal titles) into the coach's
+  context — it can say "you're 40% through paying off that card" instead
+  of vaguely gesturing at "your goals." Verified this reaches the API
+  cleanly with the new context field.
+
+New `goals` table in `schema.sql` — run the migration. Full CRUD with the
+same error-surfacing pattern as the rest of the app. Progress math verified
+directly against your actual goal numbers (debt, savings, salary target)
+before shipping.
+
+## New: Job application tracker (Finance tab)
+Log and track job applications toward your salary/job goal. New collapsible
+section under Spending Trend on the Finance tab:
+- **Log an application**: company, role, applied date (defaults to today,
+  local-date-correct), expected salary (optional), job posting link
+  (optional), notes (optional).
+- **Status per application**: Applied → Interviewing → Offer, or
+  Rejected/Withdrawn — a dropdown per row, not a forced linear cycle, since
+  real job searches don't move in a straight line.
+- **Header summary**: total logged, how many interviewing, how many offers
+  — visible without opening the section.
+- If your core goals mention "salary," a small note ties the section back
+  to that goal explicitly.
+- New `job_applications` table in `schema.sql` — run the migration.
+- Full CRUD (`listJobApplications`, `addJobApplication`,
+  `updateJobApplicationStatus`, `deleteJobApplication`) with the same
+  error-surfacing pattern as the rest of the app — failed saves/updates
+  show a real message, not a silent no-op.
+
+## Root cause of empty responses found: hidden reasoning tokens
+`"The model returned an empty response (finish_reason: length)"` wasn't
+truncation in the usual sense — `openai/gpt-oss-120b` is a reasoning model
+that, by default, spends hidden "thinking" tokens on internal reasoning
+*before* writing the visible answer, and those tokens count against
+`max_tokens` too. On a complex prompt (astrocartography, with 4 planets and
+real-world geography reasoning), medium-effort reasoning could consume the
+entire budget before a single visible word got written — hence empty
+content with `finish_reason: length`, not a normal truncation.
+
+Fixed at the source rather than just raising the token ceiling further:
+added `reasoning_effort: "low"` to all four `openai/gpt-oss-120b` calls
+(`coach.js`, `content.js`, `content-ideas.js`, `astrology.js`) — this is a
+real parameter Groq exposes specifically for this model to cap how much of
+the budget goes to invisible reasoning versus the actual answer. Verified
+all four still execute cleanly end-to-end with the new parameter added.
+
 ## Micro-task checklist now actually connects to the coach
 The checklist existed as a completely separate manual system — you'd have
 to read the coach's answer and retype steps into the list by hand. That's

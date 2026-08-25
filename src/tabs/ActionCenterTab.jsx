@@ -5,6 +5,8 @@ import QuickActions from "../components/QuickActions.jsx";
 import CoachResponse from "../components/CoachResponse.jsx";
 import MicroTaskList from "../components/MicroTaskList.jsx";
 import { extractStepsFromReply, truncateForTaskList } from "../lib/extractSteps.js";
+import { listGoals, listJobApplications } from "../lib/db.js";
+import { summarizeGoalsProgress } from "../lib/goalProgress.js";
 
 export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onContentSaved, onViewContent }) {
   const [vibe, setVibe] = useState("");
@@ -18,6 +20,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
   const [scriptSaved, setScriptSaved] = useState(false);
   const [candidateSteps, setCandidateSteps] = useState([]);
   const [addedSteps, setAddedSteps] = useState({});
+  const [goalsProgress, setGoalsProgress] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -29,6 +32,17 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
       .then((d) => setVibe(d.vibe || ""))
       .catch(() => setVibe(""));
   }, [profile?.sun_sign, profile?.moon_sign, profile?.rising_sign]);
+
+  useEffect(() => {
+    if (!profile?.id) return;
+    listGoals(profile.id)
+      .then(async (goals) => {
+        const needsJobApps = goals.some((g) => g.type === "salary");
+        const jobApps = needsJobApps ? await listJobApplications(profile.id).catch(() => []) : [];
+        setGoalsProgress(summarizeGoalsProgress(goals, jobApps));
+      })
+      .catch((err) => console.error("Couldn't load goals for coach context:", err));
+  }, [profile?.id]);
 
   async function ask(promptOverride) {
     const message = promptOverride ? `${promptOverride}: ${input || "(no extra context)"}` : input;
@@ -53,6 +67,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
                 location: profile.birth_location,
                 goals: profile.core_goals,
                 natal_chart_notes: profile.natal_chart_notes,
+                goals_progress: goalsProgress || undefined,
               }
             : undefined,
         }),

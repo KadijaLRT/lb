@@ -78,6 +78,46 @@ alter table astrology_insights enable row level security;
 drop policy if exists "allow all - phase1" on astrology_insights;
 create policy "allow all - phase1" on astrology_insights for all using (true) with check (true);
 
+-- Structured goal tracking — debt payoff, savings targets, salary goal
+-- (cross-referenced against job_applications), and education milestones.
+create table if not exists goals (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references user_profile(id) on delete cascade,
+  type text not null check (type in ('debt', 'savings', 'salary', 'education', 'other')),
+  title text not null,
+  starting_amount numeric,
+  current_amount numeric default 0,
+  target_amount numeric,
+  target_date date,
+  milestones jsonb default '[]'::jsonb,
+  status text default 'active' check (status in ('active', 'completed', 'paused')),
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table goals enable row level security;
+drop policy if exists "allow all - phase1" on goals;
+create policy "allow all - phase1" on goals for all using (true) with check (true);
+
+-- Job application tracker — works toward the salary/job goal in core_goals
+create table if not exists job_applications (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references user_profile(id) on delete cascade,
+  company text not null,
+  role text not null,
+  status text default 'applied' check (status in ('applied', 'interviewing', 'offer', 'rejected', 'withdrawn')),
+  applied_date date default current_date,
+  expected_salary numeric,
+  job_url text,
+  notes text,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now()
+);
+
+alter table job_applications enable row level security;
+drop policy if exists "allow all - phase1" on job_applications;
+create policy "allow all - phase1" on job_applications for all using (true) with check (true);
+
 -- Scripts and ideas: content engine output
 create table if not exists scripts_and_ideas (
   id uuid primary key default uuid_generate_v4(),

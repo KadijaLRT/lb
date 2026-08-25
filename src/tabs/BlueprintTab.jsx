@@ -3,6 +3,7 @@ import { Settings } from "lucide-react";
 import AstroSnapshot from "../components/AstroSnapshot.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import LifeAreaExplorer from "../components/LifeAreaExplorer.jsx";
+import GoalsTracker from "../components/GoalsTracker.jsx";
 
 export default function BlueprintTab({ profile, onSave }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -44,6 +45,8 @@ export default function BlueprintTab({ profile, onSave }) {
           </p>
         )}
       </div>
+
+      <GoalsTracker profile={profile} />
 
       <LifeAreaExplorer profile={profile} />
 
