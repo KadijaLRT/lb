@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { X, Loader2, Image as ImageIcon } from "lucide-react";
+import { extractSignsFromNotes } from "../lib/extractSigns.js";
 
 const FIELDS = [
   { key: "name", label: "Name", type: "text" },
@@ -10,14 +11,11 @@ const FIELDS = [
   { key: "birth_lat", label: "Birth latitude (e.g. 18.0 for Kingston)", type: "number" },
   { key: "birth_lng", label: "Birth longitude (e.g. -76.8, west is negative)", type: "number" },
   { key: "birth_utc_offset", label: "Timezone at birth, UTC offset (e.g. -5)", type: "number" },
-  { key: "sun_sign", label: "Sun sign", type: "text" },
-  { key: "moon_sign", label: "Moon sign", type: "text" },
-  { key: "rising_sign", label: "Rising sign", type: "text" },
   { key: "weekly_budget", label: "Weekly budget ($)", type: "number" },
   { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea" },
   {
     key: "natal_chart_notes",
-    label: "Full natal chart (paste placements, houses, aspects — powers deeper readings below)",
+    label: "Full natal chart (paste or upload — Sun/Moon/Rising are pulled from this automatically, no need to enter them separately)",
     type: "textarea",
   },
 ];
@@ -28,6 +26,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [error, setError] = useState("");
   const [parsingImages, setParsingImages] = useState(false);
   const [imageCount, setImageCount] = useState(0);
+  const [detected, setDetected] = useState(null);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -80,12 +79,14 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
         );
       }
       if (!res.ok) throw new Error(data.error || "Screenshot parsing failed.");
-      setForm((prev) => ({
-        ...prev,
-        natal_chart_notes: prev.natal_chart_notes
-          ? `${prev.natal_chart_notes}\n\n${data.notes}`
-          : data.notes,
-      }));
+      const combinedNotes = form.natal_chart_notes ? `${form.natal_chart_notes}\n\n${data.notes}` : data.notes;
+      const derived = extractSignsFromNotes(combinedNotes);
+      setForm((prev) => ({ ...prev, natal_chart_notes: combinedNotes, ...derived }));
+      if (data.truncated) {
+        setError(data.warning || "Extracted data may be cut off — check the notes field.");
+      } else if (derived.sun_sign || derived.moon_sign || derived.rising_sign) {
+        setDetected(derived);
+      }
     } catch (err) {
       setError(err.message || "Couldn't parse those screenshots.");
     } finally {
@@ -102,6 +103,13 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
       const patch = { ...form };
       delete patch.id;
       delete patch.created_at;
+      // Sun/Moon/Rising fields were removed from this form — derive them
+      // from the chart notes instead, so downstream features (astro card,
+      // coach context, Go Deeper) still have sign data without redundant
+      // manual entry. Only overwrites when something's actually found, so
+      // it never nulls out a previously-good value on a vague notes edit.
+      const derived = extractSignsFromNotes(patch.natal_chart_notes);
+      Object.assign(patch, derived);
       // Empty strings on date/time/numeric columns make Postgres reject the
       // WHOLE update, not just that field — coerce blanks to null instead.
       const NUMERIC_FIELDS = ["weekly_budget", "birth_lat", "birth_lng", "birth_utc_offset"];
@@ -152,6 +160,17 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
                     disabled={parsingImages}
                   />
                 </label>
+              )}
+              {f.key === "natal_chart_notes" && detected && (
+                <p className="text-xs text-clay -mt-0.5 mb-1">
+                  Detected: {[
+                    detected.sun_sign && `Sun ${detected.sun_sign}`,
+                    detected.moon_sign && `Moon ${detected.moon_sign}`,
+                    detected.rising_sign && `Rising ${detected.rising_sign}`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </p>
               )}
               {f.type === "textarea" ? (
                 <textarea

@@ -1,6 +1,52 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Settings: Sun/Moon/Rising auto-derived, no longer separate fields
+Those three fields were redundant with the natal chart upload — you'd be
+entering the same information twice. Removed them from Settings entirely.
+Now `src/lib/extractSigns.js` pulls Sun/Moon/Ascendant(Rising) straight out
+of whatever's in the natal chart notes (pasted or uploaded), automatically,
+every time you save. A small "Detected: Sun Leo · Moon Leo · Rising Libra"
+confirmation shows right after a screenshot upload so it's visible that
+extraction actually worked. If the notes don't mention one of the three
+(rare, but possible with a partial screenshot), whatever was already saved
+for that field is left alone rather than getting wiped.
+
 Dashboard + `/api/coach.js` (Groq) + Supabase schema stubs.
+
+## "Go deeper" overhaul — real aspects, not generic astrology
+Previous readings only told the model "today the Sun is in Virgo" — no
+degree precision, no actual relationship to the natal chart, nothing
+forward-looking. With nothing concrete to work from, the model fell back on
+generic sign-trait prose. Fixed properly:
+
+- **`parseNatalLongitudes()`** in `_ephemeris.js` parses your natal chart
+  notes text (tolerant of a few common formats) into exact ecliptic
+  longitudes per planet.
+- **`currentTransitAspects()`** computes REAL transit-to-natal aspects —
+  actual angular separation between today's transiting planets and your
+  natal planets, checked against the 5 major aspects (conjunction, sextile,
+  square, trine, opposition) with standard orbs. This is genuine
+  astronomical math, not an LLM guess.
+- **Applying vs. separating, computed not guessed**: each aspect is checked
+  again 5 days in the future to determine whether it's tightening
+  (building toward exact — worth watching) or loosening (past its peak).
+  This is what makes the reading actually forward-looking.
+- The prompt now hands the model this real data and **forbids** generic
+  sign-trait sentences ("Leos are natural leaders") — every sentence has to
+  trace back to a specific computed aspect, and the reading must distinguish
+  what's exact now from what's approaching over the next few days.
+- **Area-relevant filtering**: each life area only surfaces aspects to the
+  natal planets that actually matter for it (career → Sun/Saturn/Mars/
+  Mercury/Jupiter, love → Venus/Mars/Moon/Sun, etc.) so the reading doesn't
+  drown in irrelevant aspects.
+- **Graceful degradation**: if no natal chart notes are on file (only
+  Sun/Moon/Rising signs), it falls back to sign-level data and explicitly
+  tells the model not to fabricate exact-degree claims it doesn't have —
+  better a plainer reading than a confidently wrong one.
+
+This depends on `natal_chart_notes` actually containing degree-level data
+(e.g. "Sun: Leo 13°54'") — the seed data in `schema.sql` already has this
+from your uploaded chart, so it should work immediately once that's loaded.
 
 ## Setup — 5-minute steps
 

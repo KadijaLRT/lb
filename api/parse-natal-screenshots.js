@@ -63,14 +63,21 @@ export default async function handler(req, res) {
       model: "qwen/qwen3.6-27b",
       messages: [{ role: "user", content }],
       temperature: 0.2,
-      max_tokens: 900,
+      max_tokens: 2500,
     });
 
     const notes = completion.choices?.[0]?.message?.content?.trim() || "";
     if (!notes) {
       return res.status(502).json({ error: "Couldn't read chart data from those screenshots. Try clearer/closer crops." });
     }
-    return res.status(200).json({ notes });
+    const truncated = completion.choices?.[0]?.finish_reason === "length";
+    return res.status(200).json({
+      notes,
+      truncated,
+      ...(truncated && {
+        warning: "The extracted chart data may be cut off — it hit the response length limit. If something's missing (especially aspects), try uploading that section separately.",
+      }),
+    });
   } catch (err) {
     const detail = err?.error?.message || err?.message || "Unknown server error";
     console.error("Screenshot parse endpoint crashed:", err);

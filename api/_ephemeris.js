@@ -142,6 +142,104 @@ export function currentPlacements(date = new Date()) {
   return out;
 }
 
+export function formatDegree(lonDeg) {
+  const { sign, degreeInSign } = signForLongitude(lonDeg);
+  const whole = Math.floor(degreeInSign);
+  const min = Math.round((degreeInSign - whole) * 60);
+  return `${whole}°${min.toString().padStart(2, "0")} ${sign}`;
+}
+
+// Parse a natal chart notes blob for planet placements, tolerant of a few
+// common formats users paste in ("Sun: Leo 13°54'", "Sun 13°54 Leo (XI)",
+// "Sun 13.9 Leo"). Returns { Sun: longitudeDeg, Moon: ..., ... } for
+// whatever it can find — missing bodies are simply absent, not guessed.
+export function parseNatalLongitudes(notes) {
+  if (!notes || typeof notes !== "string") return {};
+  const signPattern = SIGNS.join("|");
+  const out = {};
+  for (const body of BODIES) {
+    const reA = new RegExp(
+      `\\b${body}\\b[^A-Za-z0-9]{0,6}(${signPattern})\\s+(\\d{1,2})(?:[°º]\\s*(\\d{1,2}))?`,
+      "i"
+    );
+    const reB = new RegExp(
+      `\\b${body}\\b[^A-Za-z0-9]{0,6}(\\d{1,2})(?:[°º]\\s*(\\d{1,2})|\\.(\\d{1,2}))?\\s+(${signPattern})`,
+      "i"
+    );
+
+    let match = notes.match(reA);
+    let sign, deg, min;
+    if (match) {
+      [, sign, deg, min] = match;
+    } else {
+      match = notes.match(reB);
+      if (match) {
+        const [, d, m, decimal, s] = match;
+        sign = s;
+        deg = d;
+        min = decimal ? Math.round(Number(`0.${decimal}`) * 60) : m;
+      }
+    }
+    if (!sign) continue;
+
+    const signIdx = SIGNS.findIndex((s) => s.toLowerCase() === sign.toLowerCase());
+    if (signIdx === -1) continue;
+    const degreeInSign = Number(deg) + (min ? Number(min) / 60 : 0);
+    out[body] = normDeg(signIdx * 30 + degreeInSign);
+  }
+  return out;
+}
+
+const ASPECTS = [
+  { name: "conjunction", angle: 0, orb: 6 },
+  { name: "sextile", angle: 60, orb: 4 },
+  { name: "square", angle: 90, orb: 6 },
+  { name: "trine", angle: 120, orb: 6 },
+  { name: "opposition", angle: 180, orb: 6 },
+];
+
+function angularSeparation(a, b) {
+  let d = Math.abs(a - b) % 360;
+  if (d > 180) d = 360 - d;
+  return d;
+}
+
+// Real transit-to-natal aspects: for each transiting body, check angular
+// separation from each natal body against the 5 major aspects. Uses a
+// second (near-future) transit snapshot to determine whether the aspect is
+// tightening (applying) or loosening (separating) — genuine trend data,
+// computed from real planetary motion, not a guess.
+export function currentTransitAspects(natalLongitudes, transitDate = new Date(), lookaheadDays = 5) {
+  const future = new Date(transitDate.getTime() + lookaheadDays * 86400000);
+  const results = [];
+
+  for (const transitBody of BODIES) {
+    const nowLon = eclipticLongitude(transitBody, transitDate);
+    const laterLon = eclipticLongitude(transitBody, future);
+
+    for (const [natalBody, natalLon] of Object.entries(natalLongitudes)) {
+      const sepNow = angularSeparation(nowLon, natalLon);
+      const sepLater = angularSeparation(laterLon, natalLon);
+
+      for (const asp of ASPECTS) {
+        const orbNow = Math.abs(sepNow - asp.angle);
+        if (orbNow <= asp.orb) {
+          const orbLater = Math.abs(sepLater - asp.angle);
+          results.push({
+            transitBody,
+            natalBody,
+            aspect: asp.name,
+            orb: +orbNow.toFixed(2),
+            trend: orbLater < orbNow ? "applying (tightening over the next few days)" : "separating (loosening over the next few days)",
+          });
+        }
+      }
+    }
+  }
+
+  return results.sort((a, b) => a.orb - b.orb);
+}
+
 function obliquityOfEcliptic(d) {
   return 23.4393 - 3.563e-7 * d; // degrees
 }

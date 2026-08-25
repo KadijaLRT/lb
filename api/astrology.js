@@ -1,5 +1,10 @@
 import Groq from "groq-sdk";
-import { currentPlacements, astrocartographyChart } from "./_ephemeris.js";
+import {
+  currentPlacements,
+  astrocartographyChart,
+  parseNatalLongitudes,
+  currentTransitAspects,
+} from "./_ephemeris.js";
 
 const AREA_FOCUS = {
   career: "Focus on the 10th house / Midheaven, Saturn, the Sun, and Mars. Cover natural strengths, likely friction points, and what kind of work environment actually suits this chart.",
@@ -8,17 +13,29 @@ const AREA_FOCUS = {
   finance: "Focus on the 2nd and 8th houses, Jupiter, and Saturn. Cover their natural relationship to money — earning style, risk tolerance, spending triggers — and one concrete, practical caution.",
 };
 
+// Which natal bodies are most relevant per life area — used to prioritize
+// which real computed aspects to hand the model when there are many.
+const AREA_KEY_BODIES = {
+  career: ["Sun", "Saturn", "Mars", "Mercury", "Jupiter"],
+  friendships: ["Moon", "Mercury", "Uranus", "Venus"],
+  love: ["Venus", "Mars", "Moon", "Sun"],
+  finance: ["Jupiter", "Saturn", "Venus", "Moon"],
+};
+
 function buildStandardPrompt(area) {
-  return `You are an astrology interpreter working from a real natal chart AND today's real transiting positions. Be specific — reference actual natal placements by name, and explicitly say how at least one of TODAY's transits is activating or interacting with the relevant natal placement for this life area. This must read as a reading for RIGHT NOW, not a generic lifelong personality summary.
+  return `You are an astrology interpreter. You will be given REAL, COMPUTED transit-to-natal aspect data — exact orbs and applying/separating trends calculated from actual planetary positions, not estimates. Your job is to interpret this data for the person's ${area} specifically, grounded entirely in what's given.
 
 ${AREA_FOCUS[area]}
 
-Rules:
+Hard rules:
+- Use ONLY the aspects listed in the data. Never invent an aspect, orb, or placement not explicitly given.
+- Open by naming the single most exact (smallest-orb) relevant aspect and what it means concretely for ${area} — not generic sign-trait description.
+- Explicitly distinguish NOW from SOON: if an aspect is "applying," say it's building/intensifying over the coming days and what to watch for; if "separating," say its peak influence has passed and what that means moving forward.
+- Do not describe personality traits of the person's Sun/Moon/Rising sign in the abstract (no "Leos are natural leaders" type sentences) — every sentence should trace back to one of the specific computed aspects given.
+- If stated goals are given and genuinely relevant, connect one specific aspect to progress on that goal concretely.
 - 150-220 words, plain prose, no headers or bullet lists.
-- Reference at least 2 specific natal placements/aspects AND at least 1 specific transiting placement from today's data.
-- If the person's stated goals are given and genuinely relevant to this life area (especially for career/finance), connect the reading to one of those goals concretely. Don't force it if it doesn't fit.
-- End with one concrete, actionable line for today or this week specifically — not vague encouragement.
-- Never invent placements not present in the data given. If natal chart data is thin, work with Sun/Moon/Rising and say so rather than fabricating detail.`;
+- End with one concrete, dated-feeling action for the next few days specifically (e.g. "over the next week, that's your window to...") — never vague encouragement like "stay positive."
+- If NO relevant aspects are in the data, say so plainly and give the single most useful general observation available from what data does exist — do not fabricate an aspect to fill space.`;
 }
 
 function buildAstrocartographyPrompt(lines, hasLatitude) {
@@ -81,31 +98,53 @@ export default async function handler(req, res) {
       }
       systemPrompt = buildAstrocartographyPrompt(lines, profile.birth_lat != null);
     } else {
-      const chartLines = [
-        profile?.sun_sign && `Sun: ${profile.sun_sign}`,
-        profile?.moon_sign && `Moon: ${profile.moon_sign}`,
-        profile?.rising_sign && `Rising: ${profile.rising_sign}`,
-        profile?.core_goals && `Their stated goals right now: ${profile.core_goals}`,
-        profile?.natal_chart_notes && `Full chart notes: ${profile.natal_chart_notes}`,
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const natalLongitudes = parseNatalLongitudes(profile?.natal_chart_notes || "");
+      const hasNatalDegrees = Object.keys(natalLongitudes).length > 0;
 
-      if (!chartLines) {
+      if (!hasNatalDegrees && !profile?.sun_sign) {
         return res.status(400).json({ error: "No chart data on this profile yet. Add Sun/Moon/Rising in Settings first." });
       }
 
-      let transitLine;
-      try {
-        const p = currentPlacements(new Date());
-        transitLine = Object.entries(p).map(([body, { sign }]) => `${body}: ${sign}`).join(", ");
-      } catch (err) {
-        console.error("Current transit computation failed:", err.message);
-        transitLine = "(unavailable — proceeding with natal data only)";
+      let dataBlock;
+      const now = new Date();
+
+      if (hasNatalDegrees) {
+        // Real degree data available — compute actual aspects, not just signs.
+        const allAspects = currentTransitAspects(natalLongitudes, now, 5);
+        const keyBodies = AREA_KEY_BODIES[area] || [];
+        const relevant = allAspects.filter((a) => keyBodies.includes(a.natalBody));
+        const chosen = (relevant.length ? relevant : allAspects).slice(0, 6);
+
+        const todayPositions = currentPlacements(now);
+        const positionsLine = Object.entries(todayPositions)
+          .map(([body, { sign, degreeInSign }]) => `${body} ${degreeInSign.toFixed(1)}° ${sign}`)
+          .join(", ");
+
+        const aspectLines = chosen.length
+          ? chosen
+              .map(
+                (a) =>
+                  `Transiting ${a.transitBody} ${a.aspect} natal ${a.natalBody} — orb ${a.orb}°, ${a.trend}`
+              )
+              .join("\n")
+          : "No major aspects (within standard orb) between today's transits and this chart's key placements for this area right now.";
+
+        dataBlock = `Today's exact transiting positions: ${positionsLine}\n\nActive transit-to-natal aspects relevant to ${area} (real computed data, sorted tightest first):\n${aspectLines}`;
+      } else {
+        // No parseable natal degrees — fall back to sign-level data only.
+        // Explicitly tell the model this is lower precision so it doesn't
+        // fabricate exact-degree claims it doesn't actually have.
+        const todayPositions = currentPlacements(now);
+        const positionsLine = Object.entries(todayPositions)
+          .map(([body, { sign }]) => `${body} in ${sign}`)
+          .join(", ");
+        dataBlock = `NOTE: only sign-level natal data available (no exact degrees), so precise aspects can't be computed — do not claim exact orbs or "applying/separating" status.\n\nNatal: Sun ${profile.sun_sign || "?"}, Moon ${profile.moon_sign || "?"}, Rising ${profile.rising_sign || "?"}\nToday's transiting signs: ${positionsLine}`;
       }
 
+      const goalsLine = profile?.core_goals ? `\n\nTheir stated goals right now: ${profile.core_goals}` : "";
+
       systemPrompt = buildStandardPrompt(area);
-      userContent = `Natal chart data:\n${chartLines}\n\nToday's transiting placements:\n${transitLine}`;
+      userContent = `${dataBlock}${goalsLine}`;
     }
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
