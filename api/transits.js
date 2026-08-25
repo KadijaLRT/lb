@@ -2,6 +2,8 @@
 // or key needed. Cross-references natal Sun/Moon/Rising when provided for a
 // slightly more personal vibe line.
 
+import { currentPlacements, ELEMENT_BY_SIGN } from "./_ephemeris.js";
+
 function vibeFor(placements, ELEMENT_BY_SIGN, natal = {}) {
   const sunSign = placements.Sun.sign;
   const moonSign = placements.Moon.sign;
@@ -38,17 +40,9 @@ export default async function handler(req, res) {
       rising: req.query.rising || undefined,
     };
 
-    let ephemeris;
-    try {
-      ephemeris = await import("./_ephemeris.js");
-    } catch (err) {
-      console.error("Ephemeris module failed to load:", err.message);
-      return res.status(500).json({ error: `Ephemeris engine unavailable: ${err.message}` });
-    }
-
-    const placements = ephemeris.currentPlacements(new Date());
-    const element = ephemeris.ELEMENT_BY_SIGN[placements.Sun.sign];
-    const vibe = vibeFor(placements, ephemeris.ELEMENT_BY_SIGN, natal);
+    const placements = currentPlacements(new Date());
+    const element = ELEMENT_BY_SIGN[placements.Sun.sign];
+    const vibe = vibeFor(placements, ELEMENT_BY_SIGN, natal);
     return res.status(200).json({
       sun: placements.Sun.sign,
       element,

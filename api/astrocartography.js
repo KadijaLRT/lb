@@ -1,3 +1,5 @@
+import { astrocartographyChart } from "./_ephemeris.js";
+
 export default async function handler(req, res) {
   try {
     if (req.method !== "POST") {
@@ -20,15 +22,7 @@ export default async function handler(req, res) {
     }
     const birthUTC = new Date(localDate.getTime() - Number(birth_utc_offset) * 60 * 60 * 1000);
 
-    let ephemeris;
-    try {
-      ephemeris = await import("./_ephemeris.js");
-    } catch (err) {
-      console.error("Ephemeris module failed to load:", err.message);
-      return res.status(500).json({ error: `Ephemeris engine unavailable: ${err.message}` });
-    }
-
-    const lines = ephemeris.astrocartographyChart(birthUTC, birth_lat != null ? Number(birth_lat) : null);
+    const lines = astrocartographyChart(birthUTC, birth_lat != null ? Number(birth_lat) : null);
     return res.status(200).json({
       generatedFromUTC: birthUTC.toISOString(),
       usedBirthTimeDefault: !birth_time,

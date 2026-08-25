@@ -1,4 +1,5 @@
 import Groq from "groq-sdk";
+import { currentPlacements, astrocartographyChart } from "./_ephemeris.js";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -56,16 +57,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
     }
 
-    // Dynamic import so a broken astronomy-engine install/bundle produces a
-    // clean JSON error instead of crashing the function at module-load time.
-    let ephemeris;
-    try {
-      ephemeris = await import("./_ephemeris.js");
-    } catch (err) {
-      console.error("Ephemeris module failed to load:", err.message);
-      return res.status(500).json({ error: `Ephemeris engine unavailable: ${err.message}` });
-    }
-
     let systemPrompt;
     let userContent = "Generate the reading from the computed data above.";
 
@@ -84,7 +75,7 @@ export default async function handler(req, res) {
 
       let lines;
       try {
-        lines = ephemeris.astrocartographyChart(birthUTC, profile.birth_lat != null ? Number(profile.birth_lat) : null);
+        lines = astrocartographyChart(birthUTC, profile.birth_lat != null ? Number(profile.birth_lat) : null);
       } catch (err) {
         console.error("Astrocartography computation failed:", err.message);
         return res.status(500).json({ error: `Couldn't compute astrocartography lines: ${err.message}` });
@@ -106,7 +97,7 @@ export default async function handler(req, res) {
 
       let transitLine;
       try {
-        const p = ephemeris.currentPlacements(new Date());
+        const p = currentPlacements(new Date());
         transitLine = Object.entries(p).map(([body, { sign }]) => `${body}: ${sign}`).join(", ");
       } catch (err) {
         console.error("Current transit computation failed:", err.message);

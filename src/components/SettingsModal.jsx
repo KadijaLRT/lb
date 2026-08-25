@@ -63,7 +63,15 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ images }),
       });
-      const data = await res.json();
+      const raw = await res.text();
+      let data;
+      try {
+        data = JSON.parse(raw);
+      } catch {
+        throw new Error(
+          res.ok ? "Server returned an unreadable response." : `Server error (${res.status}): ${raw.slice(0, 200) || "no details"}`
+        );
+      }
       if (!res.ok) throw new Error(data.error || "Screenshot parsing failed.");
       setForm((prev) => ({
         ...prev,

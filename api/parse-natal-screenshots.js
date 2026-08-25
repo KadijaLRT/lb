@@ -38,23 +38,23 @@ Coordinates: <latitude>, <longitude>
 If a screenshot is unreadable or doesn't contain chart data, just skip it — don't mention that in the output.`;
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") {
-    res.setHeader("Allow", "POST");
-    return res.status(405).json({ error: "Method not allowed" });
-  }
-
-  const { images } = req.body || {};
-  if (!Array.isArray(images) || images.length === 0) {
-    return res.status(400).json({ error: "Missing 'images' — send an array of base64 data URLs." });
-  }
-  if (images.length > MAX_IMAGES) {
-    return res.status(400).json({ error: `Max ${MAX_IMAGES} screenshots per request. Sent ${images.length}.` });
-  }
-  if (!process.env.GROQ_API_KEY) {
-    return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
-  }
-
   try {
+    if (req.method !== "POST") {
+      res.setHeader("Allow", "POST");
+      return res.status(405).json({ error: "Method not allowed" });
+    }
+
+    const { images } = req.body || {};
+    if (!Array.isArray(images) || images.length === 0) {
+      return res.status(400).json({ error: "Missing 'images' — send an array of base64 data URLs." });
+    }
+    if (images.length > MAX_IMAGES) {
+      return res.status(400).json({ error: `Max ${MAX_IMAGES} screenshots per request. Sent ${images.length}.` });
+    }
+    if (!process.env.GROQ_API_KEY) {
+      return res.status(500).json({ error: "GROQ_API_KEY is not configured on the server" });
+    }
+
     const content = [
       { type: "text", text: EXTRACT_PROMPT },
       ...images.map((dataUrl) => ({ type: "image_url", image_url: { url: dataUrl } })),
@@ -73,8 +73,8 @@ export default async function handler(req, res) {
     }
     return res.status(200).json({ notes });
   } catch (err) {
-    const detail = err?.error?.message || err?.message || "Unknown Groq error";
-    console.error("Screenshot parse failed:", detail);
-    return res.status(502).json({ error: `Screenshot parsing failed: ${detail}` });
+    const detail = err?.error?.message || err?.message || "Unknown server error";
+    console.error("Screenshot parse endpoint crashed:", err);
+    return res.status(500).json({ error: `Screenshot parsing failed: ${detail}` });
   }
 }
