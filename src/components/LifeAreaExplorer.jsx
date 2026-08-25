@@ -45,7 +45,7 @@ export default function LifeAreaExplorer({ profile }) {
             : `Server error (${res.status}): ${raw.slice(0, 200) || "no details"}`
         );
       }
-      if (!res.ok) throw new Error(data.error || "Reading failed.");
+      if (!res.ok) throw new Error(data.error || `Reading failed (${res.status}).`);
       setContent((c) => ({ ...c, [active]: data.content }));
       if (profile?.id) {
         saveInsight(profile.id, active, data.content, today).catch((e) => console.error(e));

@@ -26,7 +26,7 @@ export default function AstroSnapshot({ sun, moon, rising }) {
         } catch {
           throw new Error(r.ok ? "Unreadable response from server." : `Server error (${r.status})`);
         }
-        if (!r.ok) throw new Error(data.error || `Server error (${r.status})`);
+        if (!r.ok) throw new Error((data && data.error) || `Server error (${r.status}): ${raw.slice(0, 300) || "empty response"}`);
         return data;
       })
       .then(setTransit)
