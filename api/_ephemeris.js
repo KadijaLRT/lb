@@ -23,13 +23,23 @@ export function signForLongitude(lonDeg) {
   return { sign: SIGNS[idx], degreeInSign: +(norm - idx * 30).toFixed(2) };
 }
 
-// Geocentric apparent ecliptic longitude, tropical zodiac, equinox-of-date.
-// astronomy-engine handles the Moon separately from the planets/Sun.
+// Geocentric apparent ecliptic longitude, tropical zodiac.
+// IMPORTANT: Astronomy.EclipticLongitude() computes HELIOCENTRIC longitude,
+// which is wrong for zodiac-sign purposes (we want "as seen from Earth") and
+// throws outright when called on the Sun (a body has no heliocentric
+// position relative to itself). Use the correct geocentric path instead:
+// SunPosition() for the Sun, EclipticGeoMoon() for the Moon, and
+// GeoVector() + Ecliptic() for everything else.
 export function eclipticLongitude(bodyName, date) {
+  if (bodyName === "Sun") {
+    return Astronomy.SunPosition(date).elon;
+  }
   if (bodyName === "Moon") {
     return Astronomy.EclipticGeoMoon(date).lon;
   }
-  return Astronomy.EclipticLongitude(Astronomy.Body[bodyName], date);
+  const body = Astronomy.Body[bodyName];
+  const vec = Astronomy.GeoVector(body, date, true);
+  return Astronomy.Ecliptic(vec).elon;
 }
 
 export function currentPlacements(date = new Date()) {

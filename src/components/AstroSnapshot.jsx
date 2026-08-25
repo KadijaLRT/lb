@@ -9,20 +9,35 @@ const ELEMENT_COLOR = {
 
 export default function AstroSnapshot({ sun, moon, rising }) {
   const [transit, setTransit] = useState(null);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
     if (sun) params.set("sun", sun);
     if (moon) params.set("moon", moon);
     if (rising) params.set("rising", rising);
+    setError("");
     fetch(`/api/transits?${params.toString()}`)
-      .then((r) => r.json())
+      .then(async (r) => {
+        const raw = await r.text();
+        let data;
+        try {
+          data = JSON.parse(raw);
+        } catch {
+          throw new Error(r.ok ? "Unreadable response from server." : `Server error (${r.status})`);
+        }
+        if (!r.ok) throw new Error(data.error || `Server error (${r.status})`);
+        return data;
+      })
       .then(setTransit)
-      .catch(() => setTransit(null));
+      .catch((err) => {
+        setTransit(null);
+        setError(err.message || "Couldn't load today's transits.");
+      });
   }, [sun, moon, rising]);
 
   const element = transit?.element || "water";
-  const vibe = transit?.vibe || "Set your birth data to unlock daily transits.";
+  const vibe = transit?.vibe || (error ? null : sun || moon || rising ? "Loading…" : "Set your birth data to unlock daily transits.");
 
   return (
     <div className="border border-line rounded-2xl p-4 flex flex-col gap-3">
@@ -31,6 +46,7 @@ export default function AstroSnapshot({ sun, moon, rising }) {
         <span className={`w-2.5 h-2.5 rounded-full ${ELEMENT_COLOR[element] || "bg-muted"}`} />
       </div>
       <p className="font-display text-lg text-cream leading-snug">{vibe}</p>
+      {error && <p className="text-xs text-fire">{error}</p>}
       {(sun || moon || rising) && (
         <div className="flex gap-4 text-xs text-muted pt-2 border-t border-line">
           {sun && <span>☉ {sun}</span>}

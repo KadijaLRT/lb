@@ -52,11 +52,15 @@ Then add `GROQ_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in the Ve
    ONE bad field silently killed the entire save, including fields like
    `core_goals` that were perfectly valid. `SettingsModal` now converts blank
    fields to `null` before saving.
-2. **PDF upload for natal charts**: Settings now has an "Upload natal chart
-   PDF instead" button next to the notes field. It POSTs to
-   `/api/parse-natal-pdf.js`, which extracts text via `pdf-parse` and
-   condenses it into structured chart notes via Groq (falls back to raw
-   extracted text if `GROQ_API_KEY` isn't set). Manual pasting still works too.
+2. **Screenshot upload for natal charts**: Settings now has an "Upload
+   screenshots instead (up to 5)" button next to the notes field. Select
+   multiple screenshots of your chart report (planet table, house table,
+   aspect table, etc.) at once — they're sent together to Groq's vision
+   model (`qwen/qwen3.6-27b`, via `/api/parse-natal-screenshots.js`), which
+   reads across all of them and condenses everything into the same
+   structured chart notes format. Manual pasting still works too, and
+   uploads append to (rather than overwrite) whatever's already in the box,
+   so you can add a few, check the result, then add more if something's missing.
 3. **Real ephemeris engine, no API key needed**: swapped the placeholder
    `TRANSIT_API_KEY` fetch for `astronomy-engine` (`api/_ephemeris.js`) —
    actual astronomical calculation of every planet's current tropical sign,

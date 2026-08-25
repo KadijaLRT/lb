@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Upload } from "lucide-react";
+import { X, Loader2, Image as ImageIcon } from "lucide-react";
 
 const FIELDS = [
   { key: "name", label: "Name", type: "text" },
@@ -26,7 +26,8 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [parsingPdf, setParsingPdf] = useState(false);
+  const [parsingImages, setParsingImages] = useState(false);
+  const [imageCount, setImageCount] = useState(0);
 
   useEffect(() => {
     if (profile) setForm(profile);
@@ -34,30 +35,46 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
 
   if (!open) return null;
 
-  async function handlePdfUpload(e) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setParsingPdf(true);
+  async function handleScreenshotUpload(e) {
+    const files = Array.from(e.target.files || []);
+    if (!files.length) return;
+    if (files.length > 5) {
+      setError("Max 5 screenshots at a time.");
+      e.target.value = "";
+      return;
+    }
+    setParsingImages(true);
+    setImageCount(files.length);
     setError("");
     try {
-      const base64 = await new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result.split(",")[1]);
-        reader.onerror = () => reject(new Error("Couldn't read the file"));
-        reader.readAsDataURL(file);
-      });
-      const res = await fetch("/api/parse-natal-pdf", {
+      const images = await Promise.all(
+        files.map(
+          (file) =>
+            new Promise((resolve, reject) => {
+              const reader = new FileReader();
+              reader.onload = () => resolve(reader.result); // full data: URL
+              reader.onerror = () => reject(new Error(`Couldn't read ${file.name}`));
+              reader.readAsDataURL(file);
+            })
+        )
+      );
+      const res = await fetch("/api/parse-natal-screenshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pdfBase64: base64 }),
+        body: JSON.stringify({ images }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "PDF parsing failed.");
-      setForm((prev) => ({ ...prev, natal_chart_notes: data.notes }));
+      if (!res.ok) throw new Error(data.error || "Screenshot parsing failed.");
+      setForm((prev) => ({
+        ...prev,
+        natal_chart_notes: prev.natal_chart_notes
+          ? `${prev.natal_chart_notes}\n\n${data.notes}`
+          : data.notes,
+      }));
     } catch (err) {
-      setError(err.message || "Couldn't parse that PDF.");
+      setError(err.message || "Couldn't parse those screenshots.");
     } finally {
-      setParsingPdf(false);
+      setParsingImages(false);
       e.target.value = "";
     }
   }
@@ -109,9 +126,16 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
               {f.key === "natal_chart_notes" && (
                 <label className="self-start flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-line hover:border-clay cursor-pointer transition-colors mb-1">
-                  {parsingPdf ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                  {parsingPdf ? "Reading PDF…" : "Upload natal chart PDF instead"}
-                  <input type="file" accept="application/pdf" onChange={handlePdfUpload} className="hidden" disabled={parsingPdf} />
+                  {parsingImages ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
+                  {parsingImages ? `Reading ${imageCount} screenshot${imageCount > 1 ? "s" : ""}…` : "Upload screenshots instead (up to 5)"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    onChange={handleScreenshotUpload}
+                    className="hidden"
+                    disabled={parsingImages}
+                  />
                 </label>
               )}
               {f.type === "textarea" ? (
