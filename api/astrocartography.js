@@ -14,11 +14,13 @@ export default async function handler(req, res) {
       });
     }
 
-    const time = birth_time || "12:00";
+    const rawTime = birth_time || "12:00";
+    const timeMatch = String(rawTime).match(/^(\d{1,2}):(\d{2})/);
+    const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}` : "12:00";
     const localISO = `${birth_date}T${time}:00`;
     const localDate = new Date(localISO);
     if (Number.isNaN(localDate.getTime())) {
-      return res.status(400).json({ error: "Couldn't parse birth_date/birth_time." });
+      return res.status(400).json({ error: `Couldn't parse birth_date/birth_time (got "${birth_date}" / "${rawTime}").` });
     }
     const birthUTC = new Date(localDate.getTime() - Number(birth_utc_offset) * 60 * 60 * 1000);
 

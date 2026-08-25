@@ -12,9 +12,13 @@ export default function ContentEngineTab({ profile, onSaved }) {
       <ContentCoach profile={profile} />
       <ContentEngine
         profile={profile}
-        onSaved={(dump, result) => {
-          onSaved?.(dump, result);
-          setQueueTick((t) => t + 1);
+        onSaved={async (dump, result) => {
+          try {
+            await onSaved?.(dump, result);
+            setQueueTick((t) => t + 1);
+          } catch (err) {
+            console.error("Couldn't save to queue:", err);
+          }
         }}
       />
       <ContentQueue profile={profile} refreshKey={queueTick} />

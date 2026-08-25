@@ -76,8 +76,14 @@ export default async function handler(req, res) {
     const raw = completion.choices?.[0]?.message?.content?.trim() || "";
     const parsed = extractJson(raw);
     if (!parsed?.ideas?.length) {
-      console.error("No ideas parsed from Groq response:", raw.slice(0, 500));
-      return res.status(502).json({ error: "Couldn't generate ideas. Try again." });
+      const finishReason = completion.choices?.[0]?.finish_reason;
+      console.error(`No ideas parsed from Groq response (finish_reason: ${finishReason}):`, raw.slice(0, 500));
+      return res.status(502).json({
+        error:
+          finishReason === "length"
+            ? "Idea generation was cut off before finishing (hit length limit). Try again."
+            : "Couldn't generate ideas. Try again.",
+      });
     }
 
     return res.status(200).json(parsed);

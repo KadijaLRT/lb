@@ -23,9 +23,13 @@ const AREA_KEY_BODIES = {
 };
 
 function buildStandardPrompt(area) {
-  return `You are an astrology interpreter. You will be given REAL, COMPUTED transit-to-natal aspect data — exact orbs and applying/separating trends calculated from actual planetary positions, not estimates. Your job is to interpret this data for the person's ${area} specifically, grounded entirely in what's given.
+  return `You are talking directly to this person like a perceptive friend who happens to know astrology well — not writing a formal report. You will be given REAL, COMPUTED transit-to-natal aspect data — exact orbs and applying/separating trends calculated from actual planetary positions, not estimates. Your job is to interpret this data for the person's ${area} specifically, grounded entirely in what's given.
 
 ${AREA_FOCUS[area]}
+
+Voice:
+- Second person, warm, conversational. Contractions. Like you're telling a friend something you noticed about their chart over coffee, not delivering a printout.
+- Still direct — warmth doesn't mean softening real observations, including ones that aren't flattering. A good friend tells you the truth kindly, not vaguely.
 
 Hard rules:
 - Use ONLY the aspects listed in the data. Never invent an aspect, orb, or placement not explicitly given.
@@ -33,20 +37,20 @@ Hard rules:
 - Explicitly distinguish NOW from SOON: if an aspect is "applying," say it's building/intensifying over the coming days and what to watch for; if "separating," say its peak influence has passed and what that means moving forward.
 - Do not describe personality traits of the person's Sun/Moon/Rising sign in the abstract (no "Leos are natural leaders" type sentences) — every sentence should trace back to one of the specific computed aspects given.
 - If stated goals are given and genuinely relevant, connect one specific aspect to progress on that goal concretely.
-- 150-220 words, plain prose, no headers or bullet lists.
+- STRICT LIMIT: 220 words maximum, no exceptions. Budget your paragraphs — if you're covering multiple aspects, keep each one to 1-2 sentences rather than a full paragraph per aspect. A shorter complete reading is always better than a longer one that risks cutting off.
 - End with one concrete, dated-feeling action for the next few days specifically (e.g. "over the next week, that's your window to...") — never vague encouragement like "stay positive."
 - If NO relevant aspects are in the data, say so plainly and give the single most useful general observation available from what data does exist — do not fabricate an aspect to fill space.`;
 }
 
 function buildAstrocartographyPrompt(lines, hasLatitude) {
-  return `You are interpreting real, computed astrocartography angles from actual astronomical data — not a generic horoscope, and not a topic to be cautious about. Below: for each of the 10 planets, its Midheaven (MC) and IC meridian longitudes${hasLatitude ? ", plus Ascendant/Descendant longitudes computed specifically at this person's birth latitude" : " (Ascendant/Descendant unavailable — birth latitude wasn't provided, so lean more heavily on MC/IC)"}.
+  return `You are talking directly to this person like a well-traveled friend who's genuinely excited about maps and their chart — not a generic horoscope, and not a topic to be cautious about. Second person, warm, conversational, contractions. Below: for each of the 10 planets, its Midheaven (MC) and IC meridian longitudes${hasLatitude ? ", plus Ascendant/Descendant longitudes computed specifically at this person's birth latitude" : " (Ascendant/Descendant unavailable — birth latitude wasn't provided, so lean more heavily on MC/IC)"}.
 
 Rules:
 - ONE sentence only, right at the start, noting this uses real computed angles but isn't a full rendered map (full ASC/DSC curves vary by latitude). Do not repeat or expand on this caveat again anywhere else in the response — say it once and move on to substance.
 - Cover 4 planets, not 2-3: pick the most practically significant ones from Sun, Moon, Venus, Jupiter, Saturn, Mars based on which have the most notable (closest to 0/90/180) longitude values in the data.
 - For EACH of those 4, name the actual longitude number and use real geography knowledge to identify which specific region/country/city that meridian passes through or near — commit to a real place, don't just say "a region." You can hedge on exact precision without hedging on substance — e.g. "your Jupiter MC sits near 45°E, which runs through the Horn of Africa up through western Russia — Nairobi and Moscow are both roughly on this line" is good; "somewhere in that general area" is not.
 - For each planet covered, say concretely what that placement there tends to mean (MC = public/career direction, IC = home/roots, ASC = personal identity/how you show up, DSC = relationships/partnerships) and connect it to something practically useful.
-- 180-250 words, plain prose, no headers or bullet lists, no repeated caveats.
+- STRICT LIMIT: 250 words maximum. Keep each of the 4 planets to 1-2 sentences — don't write a full paragraph per planet. A shorter complete reading beats a longer one that risks cutting off mid-sentence.
 - End with one concrete suggestion using an actual place name from the data (e.g. "if you're ever choosing between two cities for work, lean toward the one nearer your Jupiter line").
 
 Computed data (longitudes in degrees, -180 to 180, east positive):
@@ -83,10 +87,17 @@ export default async function handler(req, res) {
           error: "Astrocartography needs your birth date and UTC offset — add them in Settings first.",
         });
       }
-      const time = profile.birth_time || "12:00";
+      // Postgres time columns often come back as "HH:MM:SS" (with seconds
+      // already included), but this code was blindly appending ":00" to
+      // build the ISO string — turning "09:18:00" into "09:18:00:00",
+      // which fails to parse. Normalize to bare HH:MM first, regardless of
+      // whatever format came back.
+      const rawTime = profile.birth_time || "12:00";
+      const timeMatch = String(rawTime).match(/^(\d{1,2}):(\d{2})/);
+      const time = timeMatch ? `${timeMatch[1].padStart(2, "0")}:${timeMatch[2]}` : "12:00";
       const localDate = new Date(`${profile.birth_date}T${time}:00`);
       if (Number.isNaN(localDate.getTime())) {
-        return res.status(400).json({ error: "Couldn't parse your stored birth date/time." });
+        return res.status(400).json({ error: `Couldn't parse your stored birth date/time (got "${profile.birth_date}" / "${rawTime}").` });
       }
       const birthUTC = new Date(localDate.getTime() - Number(profile.birth_utc_offset) * 60 * 60 * 1000);
 
@@ -156,16 +167,29 @@ export default async function handler(req, res) {
         { role: "user", content: userContent },
       ],
       temperature: 0.7,
-      max_tokens: 700,
+      max_tokens: 900,
     });
 
-    const content = completion.choices?.[0]?.message?.content?.trim() || "";
+    let content = completion.choices?.[0]?.message?.content?.trim() || "";
     if (!content) {
       console.error("Groq returned empty content for astrology reading. Full completion:", JSON.stringify(completion));
       return res.status(502).json({
         error: `The model returned an empty response (finish_reason: ${completion.choices?.[0]?.finish_reason || "unknown"}). Try again.`,
       });
     }
+
+    // If we still hit the token limit despite the higher budget, the raw
+    // text ends mid-sentence (e.g. "...and"). Trim back to the last
+    // complete sentence rather than shipping a dangling fragment — a
+    // slightly shorter but complete reading beats a broken one.
+    if (completion.choices?.[0]?.finish_reason === "length") {
+      const lastSentenceEnd = Math.max(content.lastIndexOf("."), content.lastIndexOf("!"), content.lastIndexOf("?"));
+      if (lastSentenceEnd > -1) {
+        content = content.slice(0, lastSentenceEnd + 1);
+      }
+      console.warn(`Astrology reading (${area}) hit token limit and was trimmed to last complete sentence.`);
+    }
+
     return res.status(200).json({ area, content, for_date: for_date || new Date().toISOString().slice(0, 10) });
   } catch (err) {
     const detail = err?.error?.message || err?.message || "Unknown server error";

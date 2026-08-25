@@ -9,6 +9,7 @@ Hard rules:
 - x_thread: exactly 3 punchy bullet points, no more. First one must work as a standalone hook.
 - facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that.
 - execution_steps: exactly 4-6 steps, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision. Bad: "Film the video." Good: "Say hook line 1 straight into the camera, no retakes unless you flub words." Include the actual posting-time recommendation as one step (e.g. "Post between 6-9pm local time for best reach") and one step about early engagement (e.g. "Reply to the first 5 comments within 30 min — this signals the algorithm to push it further").
+- core_message and engagement_tip: write these like a friend texting quick honest notes, not a strategist's memo — direct, warm, a little personality. "this hook's solid but the ending's flat" beats "the concluding statement could be strengthened."
 - engagement_tip: one sentence of the single highest-leverage thing about THIS specific piece — could be about the hook strength, format choice, timing, or a concrete CTA to add. Not generic advice.
 - If the person's context (name, goals, natal chart) is given, let it inform tone/voice ONLY if genuinely useful. Never mention astrology explicitly in the actual content output, and never force a connection to their goals if it doesn't fit.
 - Never explain what you did. Output ONLY the JSON described below, nothing else, no markdown fences.
@@ -92,8 +93,14 @@ export default async function handler(req, res) {
     const parsed = extractJson(raw);
 
     if (!parsed) {
-      console.error("Groq content response was not parseable JSON:", raw.slice(0, 500));
-      return res.status(502).json({ error: "Content engine returned unparseable output. Try again." });
+      const finishReason = completion.choices?.[0]?.finish_reason;
+      console.error(`Groq content response was not parseable JSON (finish_reason: ${finishReason}):`, raw.slice(0, 500));
+      return res.status(502).json({
+        error:
+          finishReason === "length"
+            ? "Content engine response was cut off before finishing (hit length limit). Try a shorter brain dump, or try again."
+            : "Content engine returned unparseable output. Try again.",
+      });
     }
 
     return res.status(200).json(parsed);

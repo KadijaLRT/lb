@@ -51,6 +51,7 @@ export default function App() {
       });
     } catch (err) {
       console.error("Couldn't save script:", err);
+      throw err; // let callers (Action Center, Content Engine) know it actually failed
     }
   }
 
@@ -64,7 +65,13 @@ export default function App() {
         </header>
 
         {tab === "action" && (
-          <ActionCenterTab profile={profile} blueprint={blueprint} onSaveTasks={setMicroTasks} />
+          <ActionCenterTab
+            profile={profile}
+            blueprint={blueprint}
+            onSaveTasks={setMicroTasks}
+            onContentSaved={handleScriptSaved}
+            onViewContent={() => setTab("content")}
+          />
         )}
         {tab === "content" && <ContentEngineTab profile={profile} onSaved={handleScriptSaved} />}
         {tab === "finance" && (

@@ -1,5 +1,124 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Micro-task checklist now actually connects to the coach
+The checklist existed as a completely separate manual system — you'd have
+to read the coach's answer and retype steps into the list by hand. That's
+real friction on a feature whose whole point is removing friction, so it
+wasn't earning its place on the page. Fixed:
+- New `src/lib/extractSteps.js` parses bullet/numbered lines out of the
+  coach's reply (it's already prompted to answer in bite-sized bullets, so
+  this catches most responses cleanly). Falls back to treating a short,
+  unstructured reply as one candidate — covers the "I'm overwhelmed"
+  single-action responses, which don't use bullets by design.
+- After any coach response, matched steps show as tappable chips ("Add to
+  today's list") right under the answer. One tap adds it to the real
+  checklist — no retyping.
+- Respects the existing 3-item cap: chips gray out once today's list is
+  full, with a clear message instead of silently doing nothing.
+- Verified the parser against bulleted, numbered, single-action, and plain
+  prose replies — correctly extracts from the first three, correctly
+  returns nothing for unstructured prose that shouldn't become a task.
+
+## "Turn this into a script" now actually connects to the content queue
+Previously this button sent your text to the general coach chat and the
+"script" it produced just displayed inline and vanished — never touched
+the real content pipeline or got saved anywhere. Fixed:
+- Separated it from the generic `QuickActions` prompts (those still go to
+  `/api/coach`) into its own dedicated action that calls `/api/content`
+  directly — the same endpoint and full 4-platform generation
+  (TikTok/Reels, Instagram, X, Facebook, execution steps) as the Content tab.
+- On success, it's saved via the same `saveScript` path the Content tab
+  uses, so it shows up in "Your queue" immediately — genuinely the same
+  data, not a parallel copy.
+- Shows a real "Saved to your content queue" confirmation with a "View"
+  link that jumps straight to the Content tab.
+- Fixed a related bug this surfaced: `handleScriptSaved` in `App.jsx` was
+  swallowing its own errors (catch-and-log, never rethrow), which meant a
+  caller awaiting it would always think the save succeeded even if it
+  silently failed. Now it rethrows, and both call sites (Action Center,
+  Content Engine) handle that properly instead of assuming success.
+
+## Tone update — warmer, more personal, still ADHD-brief
+Every AI-facing prompt in the app now explicitly asks for a "friend who
+also has a therapist's instincts" voice instead of a formal-assistant tone:
+- **`coach.js`** (main chat, impulse pause, content coach — all route
+  through this): contractions, natural phrasing, validates before advising
+  when something's hard, no generic affirmations ("you've got this!"),
+  light personality where it fits. Explicitly notes warmth is about word
+  choice, not word count — the existing ADHD brevity rules (no fluff,
+  bite-sized, one action when overwhelmed) still apply, just delivered
+  warmer. Also added a light, non-heavy-handed note to gently point toward
+  real professional support if something sounds like it goes beyond
+  day-to-day coaching.
+- **"Go deeper" readings and astrocartography**: now explicitly "talking
+  directly to this person like a perceptive friend," second person,
+  conversational — same strict grounding-in-real-data rules as before,
+  just delivered like a friend telling you what they noticed in your chart
+  rather than a formal report.
+- **Content Engine's `core_message`/`engagement_tip`**: now asks for quick
+  honest friend-notes phrasing ("this hook's solid but the ending's flat")
+  over strategist-memo phrasing.
+
+Verified all three modified handlers (`coach.js`, `content.js`,
+`astrology.js`) still execute cleanly with the new prompts — no template
+literal breakage, all reach the real Groq API without crashing.
+
+## Truncation bug — checked all 5 Groq call sites, fixed what needed it
+After finding the silent-truncation bug in astrology.js, audited every
+place the app calls Groq:
+- **`coach.js` (main chat) — same bug, and worse**: had no empty-response
+  check at all, let alone truncation handling. This is the most-used
+  feature in the app. Fixed with the same pattern: empty-response check,
+  token budget raised 600→800, and truncated replies now trim to the last
+  complete sentence instead of shipping a dangling fragment.
+- **`content.js` and `content-ideas.js` (JSON-mode outputs)**: structurally
+  different failure mode — a truncated JSON response fails to parse
+  outright (unclosed braces), so it was already impossible for these to
+  silently ship broken content; a parse failure was always a clear error.
+  What was missing was diagnostic clarity, so both now report
+  `finish_reason` and tell you specifically when the failure was a length
+  cutoff vs. a genuine format issue.
+- **`parse-natal-screenshots.js`**: already had truncation detection from
+  an earlier fix (returns a `truncated` flag + warning rather than
+  sentence-trimming, since it's structured chart data, not prose — trimming
+  mid-chart-line would corrupt the data rather than just shorten it).
+- **`astrology.js`**: the original fix, now verified against coach.js's
+  identical trim logic too.
+
+Verified each with direct handler execution (missing key, realistic
+payloads) — all reach the real Groq API cleanly with zero crashes, and the
+sentence-trim logic was tested in isolation against real truncated text to
+confirm it produces clean output.
+
+## Go Deeper readings were cutting off mid-sentence
+The Love/Career/etc readings are genuinely accurate now (real aspects, exact
+degrees, applying/separating trends — the earlier overhaul worked), but they
+were silently truncating: the code only checked for *empty* responses, not
+*truncated-but-nonempty* ones, so a reading that hit the token limit mid-word
+("...someone you've felt a genuine spark with, and") still shipped as a
+"successful" 200 response. Fixed:
+- Raised `max_tokens` from 700 to 900 to make hitting the limit less likely.
+- Tightened the prompt's word-count language (was "150-220 words" as a
+  soft target the model routinely ignored; now a hard 220/250-word ceiling
+  with explicit guidance to keep each aspect to 1-2 sentences).
+- If it still truncates, the response is now trimmed back to the last
+  complete sentence before being sent to the client — verified this
+  actually produces a clean ending instead of a dangling fragment, using
+  the exact truncated text from a real example.
+
+## Astrocartography time-parsing bug fixed
+Real bug, not a prompt issue this time: Postgres `time` columns come back
+from Supabase as `"HH:MM:SS"` (seconds included), but the code assumed
+`"HH:MM"` and blindly appended `:00` to build the ISO datetime string —
+turning `"09:18:00"` into `"09:18:00:00"`, which fails to parse and threw
+"Couldn't parse your stored birth date/time." every time. Fixed in both
+`api/astrology.js` (the astrocartography branch) and the standalone
+`api/astrocartography.js` — both now normalize to bare `HH:MM` via regex
+regardless of what format comes back, and fall back gracefully to noon on
+genuinely unparseable input instead of failing outright. Verified against
+`"09:18:00"`, `"09:18"`, missing, and garbage input — all four now reach
+the actual reading generation instead of erroring.
+
 ## This round: astrocartography fix, spending trends, Settings sections
 - **Astrocartography fixed**: the prompt was over-indexing on hedging/
   disclaimers ("this isn't a full map," repeated caveats), which is exactly
