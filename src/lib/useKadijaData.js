@@ -65,6 +65,15 @@ export function useKadijaData() {
     }
   }, [profile, refreshSpend]);
 
+  const setMicroTasks = useCallback(
+    async (tasks) => {
+      if (!profile) return;
+      const bp = await upsertTodayBlueprint(profile.id, { micro_tasks: tasks });
+      setBlueprint(bp);
+    },
+    [profile]
+  );
+
   const setFocus = useCallback(
     async (text, elementTag) => {
       if (!profile) return;
@@ -94,6 +103,7 @@ export function useKadijaData() {
     ready,
     dbError,
     setFocus,
+    setMicroTasks,
     saveProfileFields,
     refreshSpend,
     refreshAccount,

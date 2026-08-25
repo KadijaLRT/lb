@@ -16,6 +16,7 @@ create table if not exists user_profile (
   moon_sign text,
   rising_sign text,
   weekly_budget numeric default 0,
+  core_goals text,
   created_at timestamptz default now()
 );
 
@@ -25,6 +26,7 @@ create table if not exists daily_blueprint (
   user_id uuid references user_profile(id) on delete cascade,
   date date not null default current_date,
   primary_focus text,
+  micro_tasks jsonb default '[]'::jsonb,
   element_tag text check (element_tag in ('fire', 'earth', 'air', 'water')),
   transit_summary text,
   completed boolean default false,
@@ -75,6 +77,12 @@ create table if not exists scripts_and_ideas (
 -- Uncomment and run once if you'd rather not fill this in via the UI later.
 -- insert into user_profile (name, pronoun, birth_date, birth_time, birth_location, sun_sign, moon_sign, rising_sign, weekly_budget)
 -- values ('K', 'She', '1994-08-06', '09:18', 'Kingston, Jamaica', 'Leo', 'Leo', 'Libra', 200);
+
+-- Migrations for existing databases (safe to re-run — no-ops if columns exist)
+alter table daily_blueprint add column if not exists micro_tasks jsonb default '[]'::jsonb;
+alter table user_profile add column if not exists core_goals text;
+alter table financial_accounts add column if not exists plaid_item_id text;
+alter table financial_accounts add column if not exists plaid_cursor text;
 
 -- Permissive RLS for single-user Phase 1 (tighten later)
 alter table user_profile enable row level security;

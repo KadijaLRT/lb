@@ -11,6 +11,7 @@ const FIELDS = [
   { key: "moon_sign", label: "Moon sign", type: "text" },
   { key: "rising_sign", label: "Rising sign", type: "text" },
   { key: "weekly_budget", label: "Weekly budget ($)", type: "number" },
+  { key: "core_goals", label: "Core goals / life vision", type: "textarea" },
 ];
 
 export default function SettingsModal({ open, onClose, profile, onSave }) {
@@ -51,12 +52,21 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
           {FIELDS.map((f) => (
             <div key={f.key} className="flex flex-col gap-1">
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
-              <input
-                type={f.type}
-                value={form[f.key] ?? ""}
-                onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
-                className="w-full bg-transparent border-b border-line focus:border-clay outline-none text-cream py-1"
-              />
+              {f.type === "textarea" ? (
+                <textarea
+                  rows={3}
+                  value={form[f.key] ?? ""}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  className="w-full bg-transparent border border-line rounded-lg p-2 focus:border-clay outline-none text-cream resize-none"
+                />
+              ) : (
+                <input
+                  type={f.type}
+                  value={form[f.key] ?? ""}
+                  onChange={(e) => setForm((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                  className="w-full bg-transparent border-b border-line focus:border-clay outline-none text-cream py-1"
+                />
+              )}
             </div>
           ))}
           <button

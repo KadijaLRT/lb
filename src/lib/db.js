@@ -102,6 +102,18 @@ export async function logExpense(accountId, { amount, category, note }) {
   return data;
 }
 
+export async function getTransactions(accountId, limit = 25) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("transactions")
+    .select("*")
+    .eq("account_id", accountId)
+    .order("occurred_at", { ascending: false })
+    .limit(limit);
+  if (error) throw error;
+  return data || [];
+}
+
 export async function saveScript(userId, payload) {
   if (!supabase) return null;
   const { data, error } = await supabase

@@ -1,16 +1,18 @@
 import { useState } from "react";
-import { Settings } from "lucide-react";
-import PrimaryAction from "./components/PrimaryAction.jsx";
-import QuickActions from "./components/QuickActions.jsx";
-import CoachResponse from "./components/CoachResponse.jsx";
-import AstroSnapshot from "./components/AstroSnapshot.jsx";
-import FinancePulse from "./components/FinancePulse.jsx";
-import ExpenseModal from "./components/ExpenseModal.jsx";
-import ContentEngine from "./components/ContentEngine.jsx";
-import PlaidLinkButton from "./components/PlaidLinkButton.jsx";
-import SettingsModal from "./components/SettingsModal.jsx";
+import TabBar from "./components/TabBar.jsx";
+import ActionCenterTab from "./tabs/ActionCenterTab.jsx";
+import ContentEngineTab from "./tabs/ContentEngineTab.jsx";
+import FinancialHubTab from "./tabs/FinancialHubTab.jsx";
+import BlueprintTab from "./tabs/BlueprintTab.jsx";
 import { useKadijaData } from "./lib/useKadijaData.js";
 import { logExpense, saveScript } from "./lib/db.js";
+
+const TAB_TITLES = {
+  action: "Action Center",
+  content: "Content Engine",
+  finance: "Financial Hub",
+  blueprint: "Blueprint & Chart",
+};
 
 export default function App() {
   const {
@@ -20,47 +22,13 @@ export default function App() {
     weekSpend,
     ready,
     dbError,
-    setFocus,
+    setMicroTasks,
     saveProfileFields,
     refreshSpend,
     refreshAccount,
   } = useKadijaData();
 
-  const [input, setInput] = useState("");
-  const [response, setResponse] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
-  const [expenseOpen, setExpenseOpen] = useState(false);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-
-  async function ask(promptOverride) {
-    const message = promptOverride ? `${promptOverride}: ${input || "(no extra context)"}` : input;
-    setLoading(true);
-    setError("");
-    setResponse("");
-    try {
-      const res = await fetch("/api/coach", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message,
-          context: profile
-            ? { sun: profile.sun_sign, moon: profile.moon_sign, rising: profile.rising_sign }
-            : undefined,
-        }),
-      });
-      if (!res.ok) throw new Error(`Coach request failed (${res.status})`);
-      const data = await res.json();
-      setResponse(data.reply || "No response received.");
-      if (profile && input.trim()) {
-        setFocus(input.trim(), null).catch((e) => console.error(e));
-      }
-    } catch (err) {
-      setError(err.message || "Something went wrong.");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [tab, setTab] = useState("action");
 
   async function handleLogExpense({ amount, category, note }) {
     if (!account) return;
@@ -84,73 +52,35 @@ export default function App() {
     }
   }
 
-  const weeklyBudget = account?.weekly_spend_limit ?? 200;
-  const safeToSpend = Math.max(0, weeklyBudget - weekSpend);
-  const bankLinked = account?.provider === "plaid";
-
   return (
-    <div className="min-h-screen max-w-xl mx-auto px-5 py-10 flex flex-col gap-8">
-      <header className="flex items-start justify-between">
-        <div>
+    <div className="min-h-screen">
+      <div className="max-w-xl mx-auto px-5 pt-10 pb-28 flex flex-col gap-6">
+        <header>
           <p className="text-xs uppercase tracking-[0.3em] text-muted">{profile?.name || "Kadija"}</p>
-          <h1 className="font-display text-4xl text-cream">Life Blueprint</h1>
+          <h1 className="font-display text-4xl text-cream">{TAB_TITLES[tab]}</h1>
           {dbError && <p className="text-xs text-fire mt-2">{dbError}</p>}
-        </div>
-        <button
-          type="button"
-          onClick={() => setSettingsOpen(true)}
-          aria-label="Settings"
-          className="w-9 h-9 rounded-full border border-line hover:border-clay flex items-center justify-center transition-colors mt-1"
-        >
-          <Settings size={16} />
-        </button>
-      </header>
+        </header>
 
-      <section>
-        <PrimaryAction value={input} onChange={setInput} onSubmit={() => ask()} loading={loading} />
-        <QuickActions onPick={(p) => ask(p)} disabled={loading} />
-        {error && <p className="mt-4 text-sm text-fire">{error}</p>}
-        <CoachResponse text={response} loading={loading} />
-      </section>
-
-      <section className="grid grid-cols-2 gap-3">
-        <AstroSnapshot
-          sun={profile?.sun_sign}
-          moon={profile?.moon_sign}
-          rising={profile?.rising_sign}
-        />
-        <FinancePulse
-          safeToSpend={safeToSpend}
-          weeklyBudget={weeklyBudget}
-          onLogExpense={() => setExpenseOpen(true)}
-        />
-      </section>
-
-      {profile && account && (
-        <section className="flex justify-end -mt-4">
-          <PlaidLinkButton
-            userId={profile.id}
-            accountId={account.id}
-            linked={bankLinked}
+        {tab === "action" && (
+          <ActionCenterTab profile={profile} blueprint={blueprint} onSaveTasks={setMicroTasks} />
+        )}
+        {tab === "content" && <ContentEngineTab onSaved={handleScriptSaved} />}
+        {tab === "finance" && (
+          <FinancialHubTab
+            profile={profile}
+            account={account}
+            weekSpend={weekSpend}
+            onLogExpense={handleLogExpense}
             onLinked={refreshAccount}
             onSynced={() => refreshSpend(account)}
           />
-        </section>
-      )}
+        )}
+        {tab === "blueprint" && <BlueprintTab profile={profile} onSave={saveProfileFields} />}
 
-      <section>
-        <ContentEngine onSaved={handleScriptSaved} />
-      </section>
+        {!ready && <p className="text-xs text-muted">Loading your blueprint…</p>}
+      </div>
 
-      <ExpenseModal open={expenseOpen} onClose={() => setExpenseOpen(false)} onSubmit={handleLogExpense} />
-      <SettingsModal
-        open={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        profile={profile}
-        onSave={saveProfileFields}
-      />
-
-      {!ready && <p className="text-xs text-muted">Loading your blueprint…</p>}
+      <TabBar active={tab} onChange={setTab} />
     </div>
   );
 }

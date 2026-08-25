@@ -45,6 +45,29 @@ vercel
 ```
 Then add `GROQ_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in the Vercel project's Environment Variables settings, and redeploy.
 
+## Tab-based layout (latest update)
+The app is now a 4-tab structure with a persistent bottom bar, matching the
+updated blueprint:
+- **Action Center** (`src/tabs/ActionCenterTab.jsx`): 1-line transit vibe banner,
+  the coach input + quick actions, and a 1–3 item micro-task checklist that
+  persists to `daily_blueprint.micro_tasks` (new jsonb column).
+- **Content Engine** (`src/tabs/ContentEngineTab.jsx`): wraps the existing brain-dump
+  → script/thread/post engine, unchanged.
+- **Financial Hub** (`src/tabs/FinancialHubTab.jsx`): safe-to-spend bar, quick-log
+  modal, a 30-second Impulse Pause widget (`src/components/ImpulsePause.jsx` — asks
+  the coach one non-judgmental question), Plaid link/sync, and a collapsible
+  transactions accordion.
+- **Blueprint & Chart** (`src/tabs/BlueprintTab.jsx`): saved Sun/Moon/Rising, a core
+  goals / life vision field (new `user_profile.core_goals` column, fed into every
+  coach request as context), and the settings edit flow.
+
+Note: the blueprint's schema calls this table `content_hub` — this build keeps the
+existing `scripts_and_ideas` table name from Phase 2 rather than renaming, since it's
+the same shape. Rename in `schema.sql` if you want the naming to match exactly.
+
+AI engine stays on **Groq** (`openai/gpt-oss-120b`), not Gemini, per your last request —
+`/api/coach.js` and `/api/content.js` are unchanged on that front.
+
 ## What's in Phase 1
 - Action-first dashboard: one primary input, 4 one-tap prompts
 - `/api/coach.js`: calls Groq (`openai/gpt-oss-120b`) with ADHD-coach system rules baked in
