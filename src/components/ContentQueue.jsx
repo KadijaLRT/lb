@@ -11,32 +11,40 @@ export default function ContentQueue({ profile, refreshKey }) {
   const [scripts, setScripts] = useState([]);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
+  const [actionError, setActionError] = useState("");
 
   useEffect(() => {
     if (!open || !profile?.id) return;
     setLoading(true);
     listScripts(profile.id, 20)
       .then(setScripts)
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        setActionError("Couldn't load your queue.");
+      })
       .finally(() => setLoading(false));
   }, [open, profile?.id, refreshKey]);
 
   async function cycleStatus(script) {
     const next = STATUS_CYCLE[script.status] || "draft";
+    setActionError("");
     try {
       await updateScriptStatus(script.id, next);
       setScripts((prev) => prev.map((s) => (s.id === script.id ? { ...s, status: next } : s)));
     } catch (err) {
       console.error(err);
+      setActionError("Couldn't update status.");
     }
   }
 
   async function remove(script) {
+    setActionError("");
     try {
       await deleteScript(script.id);
       setScripts((prev) => prev.filter((s) => s.id !== script.id));
     } catch (err) {
       console.error(err);
+      setActionError("Couldn't delete that.");
     }
   }
 
@@ -53,6 +61,7 @@ export default function ContentQueue({ profile, refreshKey }) {
       {open && (
         <div className="border-t border-line divide-y divide-line max-h-80 overflow-y-auto">
           {loading && <p className="p-4 text-sm text-muted">Loading…</p>}
+          {actionError && <p className="px-4 pt-3 text-sm text-fire">{actionError}</p>}
           {!loading && scripts.length === 0 && (
             <p className="p-4 text-sm text-muted italic">Nothing saved yet — generate something above.</p>
           )}

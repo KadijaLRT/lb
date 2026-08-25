@@ -1,8 +1,6 @@
 import Groq from "groq-sdk";
 import { currentPlacements, astrocartographyChart } from "./_ephemeris.js";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 const AREA_FOCUS = {
   career: "Focus on the 10th house / Midheaven, Saturn, the Sun, and Mars. Cover natural strengths, likely friction points, and what kind of work environment actually suits this chart.",
   friendships: "Focus on the 11th house, Uranus, Mercury, and the Moon. Cover how this person shows up in groups, what they need from friendships, and where they might over- or under-invest.",
@@ -110,6 +108,7 @@ export default async function handler(req, res) {
       userContent = `Natal chart data:\n${chartLines}\n\nToday's transiting placements:\n${transitLine}`;
     }
 
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [
@@ -121,6 +120,12 @@ export default async function handler(req, res) {
     });
 
     const content = completion.choices?.[0]?.message?.content?.trim() || "";
+    if (!content) {
+      console.error("Groq returned empty content for astrology reading. Full completion:", JSON.stringify(completion));
+      return res.status(502).json({
+        error: `The model returned an empty response (finish_reason: ${completion.choices?.[0]?.finish_reason || "unknown"}). Try again.`,
+      });
+    }
     return res.status(200).json({ area, content, for_date: for_date || new Date().toISOString().slice(0, 10) });
   } catch (err) {
     const detail = err?.error?.message || err?.message || "Unknown server error";

@@ -6,13 +6,18 @@ export default function TransactionsAccordion({ accountId, refreshKey }) {
   const [open, setOpen] = useState(false);
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open || !accountId) return;
     setLoading(true);
+    setError("");
     getTransactions(accountId)
       .then(setTxns)
-      .catch((err) => console.error(err))
+      .catch((err) => {
+        console.error(err);
+        setError("Couldn't load transactions.");
+      })
       .finally(() => setLoading(false));
   }, [open, accountId, refreshKey]);
 
@@ -29,7 +34,8 @@ export default function TransactionsAccordion({ accountId, refreshKey }) {
       {open && (
         <div className="border-t border-line divide-y divide-line max-h-64 overflow-y-auto">
           {loading && <p className="p-4 text-sm text-muted">Loading…</p>}
-          {!loading && txns.length === 0 && (
+          {error && <p className="p-4 text-sm text-fire">{error}</p>}
+          {!loading && !error && txns.length === 0 && (
             <p className="p-4 text-sm text-muted italic">No transactions yet.</p>
           )}
           {txns.map((t) => (

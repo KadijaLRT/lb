@@ -5,18 +5,30 @@ const TABS = ["Script", "X Thread", "Facebook"];
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  async function handleCopy() {
+    try {
+      await navigator.clipboard.writeText(text || "");
+      setCopied(true);
+      setFailed(false);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      setFailed(true);
+      setTimeout(() => setFailed(false), 2000);
+    }
+  }
+
   return (
     <button
       type="button"
-      onClick={() => {
-        navigator.clipboard.writeText(text);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 1500);
-      }}
-      className="text-xs flex items-center gap-1 text-muted hover:text-cream transition-colors"
+      onClick={handleCopy}
+      className={`text-xs flex items-center gap-1 transition-colors ${
+        failed ? "text-fire" : "text-muted hover:text-cream"
+      }`}
     >
       {copied ? <Check size={12} /> : <Copy size={12} />}
-      {copied ? "Copied" : "Copy"}
+      {failed ? "Couldn't copy" : copied ? "Copied" : "Copy"}
     </button>
   );
 }

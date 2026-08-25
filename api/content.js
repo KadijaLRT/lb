@@ -1,7 +1,5 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 const SYSTEM_PROMPT = `You are Kadija's content repurposing engine AND content coach. Turn a rambling brain dump into tight, platform-ready content, then coach the delivery.
 
 Hard rules:
@@ -68,6 +66,7 @@ export default async function handler(req, res) {
 
   let completion;
   try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [

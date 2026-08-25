@@ -1,7 +1,5 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 export const config = {
   api: { bodyParser: { sizeLimit: "35mb" } },
 };
@@ -60,6 +58,7 @@ export default async function handler(req, res) {
       ...images.map((dataUrl) => ({ type: "image_url", image_url: { url: dataUrl } })),
     ];
 
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "qwen/qwen3.6-27b",
       messages: [{ role: "user", content }],

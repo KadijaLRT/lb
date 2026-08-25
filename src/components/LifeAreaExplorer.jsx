@@ -46,9 +46,13 @@ export default function LifeAreaExplorer({ profile }) {
         );
       }
       if (!res.ok) throw new Error(data.error || `Reading failed (${res.status}).`);
-      setContent((c) => ({ ...c, [active]: data.content }));
-      if (profile?.id) {
-        saveInsight(profile.id, active, data.content, today).catch((e) => console.error(e));
+      const newContent = data.content || null; // guard against empty-string falling through every display branch
+      setContent((c) => ({ ...c, [active]: newContent }));
+      if (profile?.id && newContent) {
+        saveInsight(profile.id, active, newContent, today).catch((e) => console.error(e));
+      }
+      if (!newContent) {
+        setError("Got an empty reading back. Try again.");
       }
     } catch (err) {
       setError(err.message || "Something went wrong.");

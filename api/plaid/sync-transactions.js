@@ -26,8 +26,10 @@ export default async function handler(req, res) {
     let cursor = account.plaid_cursor || undefined;
     let added = [];
     let hasMore = true;
+    let iterations = 0;
+    const MAX_ITERATIONS = 20; // safety cap — avoid looping until function timeout on a misbehaving response
 
-    while (hasMore) {
+    while (hasMore && iterations < MAX_ITERATIONS) {
       const resp = await plaidClient.transactionsSync({
         access_token: account.plaid_access_token,
         cursor,
@@ -35,6 +37,7 @@ export default async function handler(req, res) {
       added = added.concat(resp.data.added);
       hasMore = resp.data.has_more;
       cursor = resp.data.next_cursor;
+      iterations++;
     }
 
     if (added.length) {
@@ -57,7 +60,8 @@ export default async function handler(req, res) {
 
     return res.status(200).json({ synced: added.length });
   } catch (err) {
+    const detail = err.response?.data?.error_message || err.message || "Unknown error";
     console.error("Plaid sync error:", err.response?.data || err.message);
-    return res.status(502).json({ error: "Couldn't sync transactions." });
+    return res.status(502).json({ error: `Couldn't sync transactions: ${detail}` });
   }
 }

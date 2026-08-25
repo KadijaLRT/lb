@@ -14,7 +14,7 @@ const FIELDS = [
   { key: "moon_sign", label: "Moon sign", type: "text" },
   { key: "rising_sign", label: "Rising sign", type: "text" },
   { key: "weekly_budget", label: "Weekly budget ($)", type: "number" },
-  { key: "core_goals", label: "Core goals / life vision", type: "textarea" },
+  { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea" },
   {
     key: "natal_chart_notes",
     label: "Full natal chart (paste placements, houses, aspects — powers deeper readings below)",
@@ -58,6 +58,13 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
             })
         )
       );
+
+      // Base64 inflates size by ~33%; server limit is 35mb. Fail fast with a
+      // clear message instead of a slow upload that dies with a raw 413.
+      const totalBytes = images.reduce((sum, dataUrl) => sum + dataUrl.length * 0.75, 0);
+      if (totalBytes > 30 * 1024 * 1024) {
+        throw new Error("Those screenshots are too large combined (over ~30MB). Try fewer at a time, or lower-resolution crops.");
+      }
       const res = await fetch("/api/parse-natal-screenshots", {
         method: "POST",
         headers: { "Content-Type": "application/json" },

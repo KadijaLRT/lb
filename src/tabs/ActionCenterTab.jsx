@@ -10,6 +10,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks }) {
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [taskError, setTaskError] = useState("");
 
   useEffect(() => {
     const params = new URLSearchParams();
@@ -47,13 +48,26 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks }) {
             : undefined,
         }),
       });
-      if (!res.ok) throw new Error(`Coach request failed (${res.status})`);
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody.error || `Coach request failed (${res.status})`);
+      }
       const data = await res.json();
       setResponse(data.reply || "No response received.");
     } catch (err) {
       setError(err.message || "Something went wrong.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleTaskChange(next) {
+    setTaskError("");
+    try {
+      await onSaveTasks(next);
+    } catch (err) {
+      console.error("Couldn't save micro-tasks:", err);
+      setTaskError(err.message || "Couldn't save that — try again.");
     }
   }
 
@@ -75,7 +89,8 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks }) {
       </section>
 
       <section className="border-t border-line pt-6">
-        <MicroTaskList tasks={tasks} onChange={onSaveTasks} />
+        <MicroTaskList tasks={tasks} onChange={handleTaskChange} />
+        {taskError && <p className="mt-2 text-sm text-fire">{taskError}</p>}
       </section>
     </div>
   );

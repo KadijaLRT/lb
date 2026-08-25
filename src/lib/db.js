@@ -60,6 +60,18 @@ export async function upsertTodayBlueprint(userId, patch) {
   return data;
 }
 
+export async function updateAccountBudget(accountId, weeklySpendLimit) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("financial_accounts")
+    .update({ weekly_spend_limit: weeklySpendLimit, updated_at: new Date().toISOString() })
+    .eq("id", accountId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getPrimaryAccount(userId) {
   if (!supabase) return null;
   const { data: existing, error: readErr } = await supabase

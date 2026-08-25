@@ -7,6 +7,7 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
   const [amount, setAmount] = useState("");
   const [category, setCategory] = useState("Food");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   if (!open) return null;
 
@@ -15,10 +16,14 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
     const value = parseFloat(amount);
     if (!value || value <= 0) return;
     setSaving(true);
+    setError("");
     try {
       await onSubmit({ amount: value, category, note: "" });
       setAmount("");
       onClose();
+    } catch (err) {
+      console.error("Expense log failed:", err);
+      setError(err.message || "Couldn't save that expense. Try again.");
     } finally {
       setSaving(false);
     }
@@ -58,6 +63,7 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
               </button>
             ))}
           </div>
+          {error && <p className="text-sm text-fire">{error}</p>}
           <button
             type="submit"
             disabled={saving || !amount}

@@ -25,9 +25,24 @@ export default function BlueprintTab({ profile, onSave }) {
 
       <div className="border border-line rounded-2xl p-4 flex flex-col gap-2">
         <span className="text-xs uppercase tracking-[0.2em] text-muted">Core goals</span>
-        <p className="text-cream/90 leading-relaxed">
-          {profile?.core_goals || "Nothing set yet — add your life vision notes here so the coach factors them into every response."}
-        </p>
+        {profile?.core_goals ? (
+          <ul className="flex flex-col gap-1.5">
+            {profile.core_goals
+              .split("\n")
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line, i) => (
+                <li key={i} className="flex items-start gap-2 text-cream/90 leading-relaxed">
+                  <span className="text-clay mt-1.5 w-1 h-1 rounded-full bg-clay shrink-0" />
+                  {line}
+                </li>
+              ))}
+          </ul>
+        ) : (
+          <p className="text-cream/90 leading-relaxed">
+            Nothing set yet — add your life vision notes here so the coach factors them into every response.
+          </p>
+        )}
       </div>
 
       <LifeAreaExplorer profile={profile} />

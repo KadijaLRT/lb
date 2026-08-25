@@ -20,7 +20,8 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ link_token: response.data.link_token });
   } catch (err) {
+    const detail = err.response?.data?.error_message || err.message || "Unknown error";
     console.error("Plaid link token error:", err.response?.data || err.message);
-    return res.status(502).json({ error: "Couldn't create a Plaid link token." });
+    return res.status(502).json({ error: `Couldn't create a Plaid link token: ${detail}` });
   }
 }

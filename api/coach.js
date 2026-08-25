@@ -1,7 +1,5 @@
 import Groq from "groq-sdk";
 
-const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
-
 const SYSTEM_PROMPT = `You are Kadija's personal ADHD-aware life & content coach.
 Rules:
 - No intro fluff. Start with the answer or the first step.
@@ -29,6 +27,7 @@ export default async function handler(req, res) {
   }
 
   try {
+    const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await groq.chat.completions.create({
       model: "openai/gpt-oss-120b",
       messages: [
@@ -43,7 +42,8 @@ export default async function handler(req, res) {
     const reply = completion.choices?.[0]?.message?.content?.trim() || "";
     return res.status(200).json({ reply });
   } catch (err) {
-    console.error("Groq coach error:", err);
-    return res.status(502).json({ error: "Coach engine failed to respond. Try again." });
+    const detail = err?.error?.message || err?.message || "Unknown Groq error";
+    console.error("Groq coach error:", detail);
+    return res.status(502).json({ error: `Coach engine failed to respond: ${detail}` });
   }
 }

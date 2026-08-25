@@ -86,6 +86,65 @@ Then add `GROQ_API_KEY`, `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY` in the Ve
      `birth_lng`, `birth_utc_offset` in Settings. Run the migration in
      `schema.sql` before using this.
 
+## Full bug audit (this pass)
+Went through every file, ran the production build, syntax-checked every API
+route, and exercised handlers directly with mock requests/responses. Found
+and fixed:
+
+1. **Critical, systemic**: `new Groq({...})` was instantiated at module load
+   time in `coach.js`, `content.js`, `astrology.js`, and
+   `parse-natal-screenshots.js`. If `GROQ_API_KEY` was ever missing, the SDK
+   constructor throws *synchronously at import* — before any handler code or
+   try/catch runs — producing the same raw platform crash we spent a long
+   time chasing with `astronomy-engine` earlier. Fixed in all four files:
+   Groq is now instantiated lazily inside the handler, after the key check.
+   Verified with direct handler tests that all four now fail with clean JSON
+   errors instead of crashing.
+2. **Real functional bug**: the "Weekly budget" field in Settings wrote to
+   `user_profile.weekly_budget`, but the Finance tab actually reads
+   `financial_accounts.weekly_spend_limit` — two disconnected fields.
+   Editing that Settings field visibly did nothing. Now synced: saving it in
+   Settings updates the account's operational budget too.
+3. **`sync-transactions.js`**: unbounded `while (hasMore)` loop with no cap
+   — a misbehaving Plaid response could loop until function timeout. Capped
+   at 20 iterations.
+4. **`exchange-public-token.js`**: silently returned success even if
+   Supabase wasn't configured, so a linked bank would never actually save
+   and would appear unlinked again with zero explanation. Now errors loudly.
+5. **All three Plaid handlers**: generic error messages hid the real Plaid
+   error. Now surface actual detail.
+6. **`ExpenseModal.jsx`**: no error handling around the save — a failed
+   write was an invisible unhandled rejection. Fixed.
+7. **`ActionCenterTab.jsx`**: the main coach call (the most-used feature in
+   the app) didn't read the real error message from failed responses,
+   unlike every other endpoint. Also, micro-task checkbox saves had zero
+   error handling — a failed save just silently didn't update the UI, no
+   explanation. Both fixed, with a dedicated error slot next to the checklist.
+8. **`ContentEngine.jsx`**: the Copy buttons didn't await or check
+   `navigator.clipboard.writeText()` — a failed copy (common in some mobile
+   browser contexts) still showed "Copied" for 1.5s. Now shows "Couldn't
+   copy" on actual failure.
+9. **`ContentQueue.jsx` / `TransactionsAccordion.jsx`**: failed loads/status
+   changes/deletes were console-only, no user-facing error — fixed to
+   surface inline messages instead of failing invisibly.
+10. **`SettingsModal.jsx`**: no client-side size check before uploading up
+    to 5 full-resolution screenshots, risking a slow upload that dies with
+    an unhelpful raw error at the server's body-size limit. Added a
+    pre-flight size check with a clear message.
+
+**Verified clean**: production build passes, every API file syntax-checks,
+all four Groq-dependent handlers and all three Plaid handlers tested
+directly with mock requests, the ephemeris math checked against 8 known
+reference dates including a 24-years-out drift check (all correct),
+`_supabaseServer.js`/`src/lib/supabase.js` confirmed safe without env vars,
+`useKadijaData.js` closure behavior confirmed correct.
+
+**Known low-risk limitation, not fixed**: `getOrCreateProfile()` has a
+theoretical race condition if called twice concurrently before the first
+insert completes (could create two profile rows). Low practical risk for a
+single-user, single-client app; would need a proper upsert-on-conflict or
+auth-scoped row to fully close.
+
 ## Settings wiring audit + Content Engine upgrade
 A full audit found several Settings fields were stored but never actually
 used by the AI anywhere:

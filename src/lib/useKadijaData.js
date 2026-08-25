@@ -7,6 +7,7 @@ import {
   upsertTodayBlueprint,
   getPrimaryAccount,
   getWeekSpend,
+  updateAccountBudget,
 } from "./db.js";
 
 export function useKadijaData() {
@@ -91,8 +92,19 @@ export function useKadijaData() {
       if (!profile) return;
       const p = await updateProfile(profile.id, patch);
       setProfile(p);
+      // FinancePulse/FinancialHubTab read from financial_accounts.weekly_spend_limit,
+      // not user_profile.weekly_budget — these were two disconnected fields.
+      // Keep them in sync so editing Settings actually changes what's displayed.
+      if (patch.weekly_budget != null && account) {
+        try {
+          const updatedAccount = await updateAccountBudget(account.id, patch.weekly_budget);
+          setAccount(updatedAccount);
+        } catch (err) {
+          console.error("Couldn't sync weekly budget to account:", err);
+        }
+      }
     },
-    [profile]
+    [profile, account]
   );
 
   return {
