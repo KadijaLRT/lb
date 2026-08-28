@@ -22,7 +22,12 @@ export default function BlueprintTab({ profile, onSave }) {
         </button>
       </div>
 
-      <AstroSnapshot sun={profile?.sun_sign} moon={profile?.moon_sign} rising={profile?.rising_sign} />
+      <AstroSnapshot
+        sun={profile?.sun_sign}
+        moon={profile?.moon_sign}
+        rising={profile?.rising_sign}
+        natalChartNotes={profile?.natal_chart_notes}
+      />
 
       <div className="border border-line rounded-2xl p-4 flex flex-col gap-2">
         <span className="text-xs uppercase tracking-[0.2em] text-muted">Core goals</span>

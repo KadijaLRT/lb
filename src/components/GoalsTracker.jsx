@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Target, Plus, X, Trash2, TrendingUp, GraduationCap, DollarSign, Briefcase } from "lucide-react";
+import { Target, Plus, X, Trash2, Pencil, TrendingUp, GraduationCap, DollarSign, Briefcase, Import } from "lucide-react";
 import { listGoals, addGoal, updateGoal, deleteGoal, listJobApplications } from "../lib/db.js";
 import { computeProgress, milestoneBadge, defaultMilestones } from "../lib/goalProgress.js";
+import { parseGoalsFromText } from "../lib/parseGoalsFromText.js";
 
 const TYPE_ICON = { debt: TrendingUp, savings: DollarSign, salary: Briefcase, education: GraduationCap };
 const TYPE_LABEL = { debt: "Debt payoff", savings: "Savings", salary: "Salary", education: "Education" };
@@ -11,15 +12,30 @@ function emptyForm() {
   return { type: "savings", title: "", starting_amount: "", current_amount: "", target_amount: "", target_date: "" };
 }
 
+function goalToEditForm(goal) {
+  return {
+    title: goal.title || "",
+    starting_amount: goal.starting_amount ?? "",
+    current_amount: goal.current_amount ?? "",
+    target_amount: goal.target_amount ?? "",
+    target_date: goal.target_date || "",
+  };
+}
+
 export default function GoalsTracker({ profile }) {
   const [open, setOpen] = useState(false);
   const [goals, setGoals] = useState(null);
   const [jobApps, setJobApps] = useState([]);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState(emptyForm());
+  const [editingId, setEditingId] = useState(null);
+  const [editForm, setEditForm] = useState(null);
+  const [editSaving, setEditSaving] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [amountInputs, setAmountInputs] = useState({});
+  const [importSuggestions, setImportSuggestions] = useState(null);
+  const [importing, setImporting] = useState(false);
 
   useEffect(() => {
     if (!open || !profile?.id) return;
@@ -99,6 +115,43 @@ export default function GoalsTracker({ profile }) {
     }
   }
 
+  function startEdit(goal) {
+    setEditingId(goal.id);
+    setEditForm(goalToEditForm(goal));
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditForm(null);
+  }
+
+  async function saveEdit(goal) {
+    if (!editForm.title.trim()) return;
+    setEditSaving(true);
+    setError("");
+    try {
+      const patch = { title: editForm.title.trim(), target_date: editForm.target_date || null };
+      if (goal.type === "debt") {
+        patch.starting_amount = Number(editForm.starting_amount) || 0;
+        patch.current_amount = Number(editForm.current_amount) || 0;
+      } else if (goal.type === "savings") {
+        patch.target_amount = Number(editForm.target_amount) || 0;
+        patch.current_amount = Number(editForm.current_amount) || 0;
+      } else if (goal.type === "salary") {
+        patch.target_amount = Number(editForm.target_amount) || 0;
+      }
+      const updated = await updateGoal(goal.id, patch);
+      setGoals((prev) => prev.map((g) => (g.id === goal.id ? updated : g)));
+      setEditingId(null);
+      setEditForm(null);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Couldn't save changes.");
+    } finally {
+      setEditSaving(false);
+    }
+  }
+
   async function remove(goal) {
     setError("");
     try {
@@ -107,6 +160,50 @@ export default function GoalsTracker({ profile }) {
     } catch (err) {
       console.error(err);
       setError("Couldn't delete that goal.");
+    }
+  }
+
+  function startImport() {
+    const existingTitles = new Set((goals || []).map((g) => g.title.toLowerCase().trim()));
+    const suggestions = parseGoalsFromText(profile?.core_goals || "").filter(
+      (s) => !existingTitles.has(s.title.toLowerCase().trim())
+    );
+    setImportSuggestions(suggestions);
+  }
+
+  function updateSuggestion(index, patch) {
+    setImportSuggestions((prev) => prev.map((s, i) => (i === index ? { ...s, ...patch } : s)));
+  }
+
+  function removeSuggestion(index) {
+    setImportSuggestions((prev) => prev.filter((_, i) => i !== index));
+  }
+
+  async function confirmImport() {
+    setImporting(true);
+    setError("");
+    try {
+      const created = [];
+      for (const s of importSuggestions) {
+        const payload = { type: s.type, title: s.title, target_date: null };
+        if (s.type === "debt") {
+          payload.starting_amount = Number(s.target_amount) || 0;
+          payload.current_amount = Number(s.target_amount) || 0;
+        } else if (s.type === "savings" || s.type === "salary") {
+          payload.target_amount = Number(s.target_amount) || 0;
+          payload.current_amount = 0;
+        } else if (s.type === "education") {
+          payload.milestones = defaultMilestones();
+        }
+        created.push(await addGoal(profile.id, payload));
+      }
+      setGoals((prev) => [...(prev || []), ...created]);
+      setImportSuggestions(null);
+    } catch (err) {
+      console.error(err);
+      setError(err.message || "Couldn't import those goals.");
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -122,15 +219,89 @@ export default function GoalsTracker({ profile }) {
 
       {open && (
         <div className="border-t border-line p-4 flex flex-col gap-3">
-          {!showForm && (
-            <button
-              type="button"
-              onClick={() => setShowForm(true)}
-              className="self-start flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-clay text-ink font-medium"
-            >
-              <Plus size={14} />
-              Add goal
-            </button>
+          {!showForm && !importSuggestions && (
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setShowForm(true)}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full bg-clay text-ink font-medium"
+              >
+                <Plus size={14} />
+                Add goal
+              </button>
+              {profile?.core_goals && (
+                <button
+                  type="button"
+                  onClick={startImport}
+                  className="flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border border-clay text-clay"
+                >
+                  <Import size={14} />
+                  Import from Core Goals
+                </button>
+              )}
+            </div>
+          )}
+
+          {importSuggestions && (
+            <div className="flex flex-col gap-2 border border-clay rounded-xl p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase tracking-[0.2em] text-muted">
+                  Review before importing ({importSuggestions.length})
+                </span>
+                <button type="button" onClick={() => setImportSuggestions(null)} className="text-muted hover:text-cream">
+                  <X size={14} />
+                </button>
+              </div>
+
+              {importSuggestions.length === 0 && (
+                <p className="text-sm text-muted italic">Nothing new to import — looks like these are already tracked.</p>
+              )}
+
+              {importSuggestions.map((s, i) => (
+                <div key={i} className="flex flex-col gap-1.5 border-b border-line pb-2 last:border-0">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-sm text-cream truncate">{s.title}</span>
+                    <button type="button" onClick={() => removeSuggestion(i)} className="text-muted hover:text-fire shrink-0">
+                      <X size={13} />
+                    </button>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(TYPE_LABEL).map(([t, label]) => (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => updateSuggestion(i, { type: t })}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                          s.type === t ? "border-clay text-clay" : "border-line text-muted"
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                  {(s.type === "debt" || s.type === "savings" || s.type === "salary") && (
+                    <input
+                      type="number"
+                      value={s.target_amount ?? ""}
+                      onChange={(e) => updateSuggestion(i, { target_amount: e.target.value })}
+                      placeholder={s.type === "debt" ? "Amount owed ($)" : "Target amount ($)"}
+                      className="bg-transparent border-b border-line focus:border-clay outline-none text-xs py-1 placeholder:text-muted/60"
+                    />
+                  )}
+                </div>
+              ))}
+
+              {importSuggestions.length > 0 && (
+                <button
+                  type="button"
+                  onClick={confirmImport}
+                  disabled={importing}
+                  className="self-start px-4 py-1.5 rounded-full bg-clay text-ink text-sm font-medium disabled:opacity-40"
+                >
+                  {importing ? "Importing…" : `Import ${importSuggestions.length} goal${importSuggestions.length !== 1 ? "s" : ""}`}
+                </button>
+              )}
+            </div>
           )}
 
           {showForm && (
@@ -237,6 +408,103 @@ export default function GoalsTracker({ profile }) {
                 const { percent, detailText } = computeProgress(goal, jobApps);
                 const badge = milestoneBadge(percent);
                 const Icon = TYPE_ICON[goal.type] || Target;
+                const isEditing = editingId === goal.id;
+
+                if (isEditing) {
+                  return (
+                    <div key={goal.id} className="border border-clay rounded-xl p-3 flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs uppercase tracking-[0.2em] text-muted">
+                          Editing · {TYPE_LABEL[goal.type]}
+                        </span>
+                        <button type="button" onClick={cancelEdit} className="text-muted hover:text-cream">
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <input
+                        value={editForm.title}
+                        onChange={(e) => setEditForm((f) => ({ ...f, title: e.target.value }))}
+                        placeholder="Goal name"
+                        className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                      />
+
+                      {goal.type === "debt" && (
+                        <>
+                          <input
+                            type="number"
+                            value={editForm.starting_amount}
+                            onChange={(e) => setEditForm((f) => ({ ...f, starting_amount: e.target.value }))}
+                            placeholder="Total owed originally ($)"
+                            className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                          />
+                          <input
+                            type="number"
+                            value={editForm.current_amount}
+                            onChange={(e) => setEditForm((f) => ({ ...f, current_amount: e.target.value }))}
+                            placeholder="Remaining balance ($)"
+                            className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                          />
+                        </>
+                      )}
+
+                      {goal.type === "savings" && (
+                        <>
+                          <input
+                            type="number"
+                            value={editForm.target_amount}
+                            onChange={(e) => setEditForm((f) => ({ ...f, target_amount: e.target.value }))}
+                            placeholder="Target amount ($)"
+                            className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                          />
+                          <input
+                            type="number"
+                            value={editForm.current_amount}
+                            onChange={(e) => setEditForm((f) => ({ ...f, current_amount: e.target.value }))}
+                            placeholder="Already saved ($)"
+                            className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                          />
+                        </>
+                      )}
+
+                      {goal.type === "salary" && (
+                        <input
+                          type="number"
+                          value={editForm.target_amount}
+                          onChange={(e) => setEditForm((f) => ({ ...f, target_amount: e.target.value }))}
+                          placeholder="Target salary ($)"
+                          className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+                        />
+                      )}
+
+                      <input
+                        type="date"
+                        value={editForm.target_date}
+                        onChange={(e) => setEditForm((f) => ({ ...f, target_date: e.target.value }))}
+                        className="bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 text-cream"
+                      />
+                      <span className="text-[10px] text-muted -mt-1">Target date (optional)</span>
+
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => saveEdit(goal)}
+                          disabled={editSaving || !editForm.title.trim()}
+                          className="px-4 py-1.5 rounded-full bg-clay text-ink text-sm font-medium disabled:opacity-40"
+                        >
+                          {editSaving ? "Saving…" : "Save changes"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={cancelEdit}
+                          className="px-4 py-1.5 rounded-full border border-line text-sm text-muted hover:text-cream"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  );
+                }
+
                 return (
                   <div key={goal.id} className="border border-line rounded-xl p-3 flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
@@ -244,9 +512,14 @@ export default function GoalsTracker({ profile }) {
                         <Icon size={14} className="text-clay shrink-0" />
                         <span className="text-sm text-cream truncate">{goal.title}</span>
                       </div>
-                      <button type="button" onClick={() => remove(goal)} className="text-muted hover:text-fire shrink-0">
-                        <Trash2 size={13} />
-                      </button>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <button type="button" onClick={() => startEdit(goal)} className="text-muted hover:text-clay">
+                          <Pencil size={13} />
+                        </button>
+                        <button type="button" onClick={() => remove(goal)} className="text-muted hover:text-fire">
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
                     </div>
 
                     <div className="h-1.5 w-full bg-line rounded-full overflow-hidden">

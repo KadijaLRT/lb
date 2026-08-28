@@ -1,5 +1,154 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## "Today's vibe" — from generic template to genuinely personal
+Fair complaint: this was 3 rotating phrases per Moon element, shared by
+anyone with the same Moon sign that day — barely about your actual chart.
+Rewrote `transits.js` to compute the single tightest real transit-to-natal
+aspect (same math as Go Deeper — real orbs, real applying/separating
+trends) and build the vibe text from that specific, computed fact. Two
+people with the same Moon sign today will not see the same text unless
+their natal charts happen to produce an identical tightest aspect —
+essentially never.
+
+Verified directly: with your chart loaded, it now says "Transiting Saturn
+is flowing easily with your natal Sun right now (orb 0.17°, separating)"
+— a real, specific, only-yours fact. Without natal chart data uploaded, it
+falls back to the old generic phrasing but now says so explicitly and
+points you to add your chart in Settings, rather than silently passing off
+a generic line as personal.
+
+Also switched `/api/transits` from GET to POST so it can carry your full
+natal chart notes (too much data for a clean query string) — updated both
+call sites (`AstroSnapshot.jsx`, `ActionCenterTab.jsx`'s vibe banner).
+
+## New: "Ask about a specific situation" in Go Deeper
+The daily readings are unprompted — they cover whatever's astrologically
+active for that area today. This adds the other half: describe an actual
+situation you're facing, and get advice grounded in the same real
+transit-to-natal aspect data, but answering YOUR question directly instead
+of a generic day-in-the-life read.
+
+- New collapsible "Ask about a specific situation" section under each
+  area's daily reading — pick the area (Career/Friendships/Love/Finance)
+  that fits, describe what's going on in a few sentences, tap "Get advice."
+- Backend (`buildScenarioPrompt` in `api/astrology.js`) is a distinct
+  prompt path: told to address the situation head-on in the first
+  sentence, use the same real computed aspects as grounding but only where
+  they genuinely bear on the situation (told explicitly not to force a
+  connection if none of the given aspects are relevant), same
+  applying/separating NOW-vs-SOON framing, plus 2-3 action ideas specific
+  to the situation described.
+- **Deliberately not cached** — this is a one-off ask, not "today's fixed
+  reading" for that area, so it doesn't overwrite the daily cached content.
+  Switching areas clears the scenario panel so an answer about a
+  relationship situation doesn't linger under Finance.
+- Verified both paths (daily reading and scenario advice) execute cleanly
+  end-to-end, plus confirmed an empty/whitespace-only scenario correctly
+  falls back to the standard daily-reading prompt instead of erroring.
+
+## "Go deeper" action tidbit expanded into a real "Try this" section
+Was a single sentence tacked onto the end of the prose reading. Now a
+genuinely separate, structured section:
+- Switched `api/astrology.js` to JSON-mode output: `{ reading, action_ideas }`
+  instead of one plain-text blob. The reading itself no longer ends with an
+  action line (moved out entirely) — 2-3 action ideas live in their own field.
+- Each idea is required to be concrete and doable in the next few days,
+  tied to a specific aspect from the reading, under 20 words, no hedging —
+  "Send that email you've been sitting on" not "embrace communication."
+  Explicitly told not to give 3 variations on the same idea.
+- Frontend (`LifeAreaExplorer.jsx`) now renders these as a visually
+  distinct "Try this" list with bullet points, separated from the prose
+  by a divider — not buried in a paragraph anymore.
+- **Backward compatible**: readings cached before this change are plain
+  text, not JSON. Added a parser that tries JSON first and falls back to
+  treating old cached text as the reading with no action ideas, rather
+  than breaking on existing data. Verified against both old and new
+  formats, plus empty/null edge cases, before shipping.
+
+## "Today's vibe" was actually "this month's vibe" + Go Deeper stopped over-focusing on goals
+
+**Why the vibe repeated**: the entire text was driven by the transiting
+Sun's sign — but the Sun only changes sign once a month. Verified directly:
+Sun stayed "Virgo" for 8 straight test days while the Moon cycled through
+Pisces → Aries → Taurus → Gemini in that same window. A Sun-only vibe line
+is identical for ~30 days at a stretch; that's not a daily read. Rewrote
+`transits.js` to be **Moon-driven** instead (Moon changes sign every 2-3
+days — the actual traditional astrological signal for day-to-day mood),
+with 3 rotating phrasings per element chosen deterministically per-day so
+even within one Moon-sign window it doesn't feel stuck. Sun sign is still
+shown as brief seasonal context, and still drives the dot color.
+
+**Go Deeper no longer mentions goals** — `core_goals` is no longer sent to
+`api/astrology.js` at all (previously appended to every request), and the
+prompt now explicitly frames these readings as being about the person's
+general patterns/tendencies, not a goal-tracking check-in. The daily coach
+(Action Center) still references real goal progress, since that's a
+different, appropriately goal-oriented feature — this change is scoped
+specifically to "Go Deeper."
+
+## Astrocartography removed, goal editing added
+Two separate changes:
+- **Astrocartography removed entirely** — wasn't working the way you
+  wanted, so cut rather than kept half-working. Removed the "Go Deeper"
+  tab, the standalone `api/astrocartography.js` endpoint, and the
+  astrocartography branch from `api/astrology.js`. The 4 remaining areas
+  (Career, Friendships, Love, Finance) are unaffected — verified all 4
+  still reach the API cleanly and that "astrocartography" is now correctly
+  rejected as an invalid area instead of silently processed. The
+  underlying ephemeris math (`astrocartographyChart` in `_ephemeris.js`)
+  was left in place since it's inert now — nothing calls it — in case it's
+  wanted again later; happy to strip it fully if preferred.
+- **Goals are now editable.** Previously the only way to change a goal
+  after creating it was logging payments/deposits (current amount) or
+  checking off education milestones — the title, target amount, starting
+  amount, and target date were all locked in at creation. Each goal card
+  now has a pencil icon that opens an inline edit form for exactly those
+  fields, type-appropriate (debt gets starting+remaining balance, savings
+  gets target+saved, salary gets target, education gets title+date since
+  milestones already have their own toggle UI).
+
+## Fixed: "Could not find table 'public.goals'" + goals now import from Core Goals
+Two things from the same report:
+1. **The error** was just the `goals` table migration not having been run
+   yet — same fix as every schema update: run `supabase/schema.sql` again.
+2. **Real gap, now fixed**: the Goals tracker required manually retyping
+   goals that already existed in Core Goals — no reason to make you write
+   everything twice. New "Import from Core Goals" button on the Goals
+   Progress section:
+   - `parseGoalsFromText()` reads each line of your Core Goals text and
+     classifies it (debt/savings/salary/education) using keyword matching
+     — "credit card," "debt," "collections" → debt; "degree," "course" →
+     education; a dollar amount near "salary"/"pay" → salary (and pulls
+     the actual number, e.g. "$50,000+ salary" → target $50,000
+     automatically); everything else → savings.
+   - **Nothing is created silently** — it shows a review screen first
+     where you can change the type, fill in target amounts the text didn't
+     have (most goals don't state a dollar figure), remove any you don't
+     want, then confirm.
+   - Skips anything that title-matches a goal you've already added, so
+     re-running the import later won't duplicate existing goals.
+   - Verified the parser against your actual 5 goals before shipping — all
+     5 classified correctly, salary target extracted correctly.
+
+## Astrocartography was defaulting to career-only — fixed
+Real bug: nothing forced the reading to cover more than the MC (career)
+axis. Two causes — without birth latitude set, only MC/IC data exists at
+all (ASC/DSC genuinely aren't computed), so a career+home-only reading was
+the *ceiling* of what was possible; and even with full data, the prompt
+said "pick 4 planets based on notable longitude values" with zero
+requirement to spread across angle types, so the model could (and did)
+just grab 4 tight MC values and talk about career four times over. Fixed:
+- Added explicit angle-type meanings to the prompt (MC=career, IC=home/
+  roots, ASC=identity, DSC=relationships) so the model has to actually
+  reason about domain, not just pick by tightest orb.
+- Now requires spreading across at least 3 of the 4 angle types when full
+  data is available, explicitly told not to default to career.
+- The closing suggestion no longer always uses a "for work" example —
+  varies by whichever angle type turned out most significant.
+- If birth latitude still isn't set, the reading now explicitly says so
+  and splits evenly between MC/IC rather than leaning all-career even
+  within that smaller data set.
+
 ## New: Structured goal tracking system (Blueprint tab)
 Replaces the static goals paragraph with real, trackable progress across
 4 goal types — new "Goal progress" section on the Blueprint tab, below

@@ -7,17 +7,17 @@ const ELEMENT_COLOR = {
   water: "bg-water",
 };
 
-export default function AstroSnapshot({ sun, moon, rising }) {
+export default function AstroSnapshot({ sun, moon, rising, natalChartNotes }) {
   const [transit, setTransit] = useState(null);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (sun) params.set("sun", sun);
-    if (moon) params.set("moon", moon);
-    if (rising) params.set("rising", rising);
     setError("");
-    fetch(`/api/transits?${params.toString()}`)
+    fetch("/api/transits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ sun, moon, rising, natal_chart_notes: natalChartNotes }),
+    })
       .then(async (r) => {
         const raw = await r.text();
         let data;
@@ -34,7 +34,7 @@ export default function AstroSnapshot({ sun, moon, rising }) {
         setTransit(null);
         setError(err.message || "Couldn't load today's transits.");
       });
-  }, [sun, moon, rising]);
+  }, [sun, moon, rising, natalChartNotes]);
 
   const element = transit?.element || "water";
   const vibe = transit?.vibe || (error ? null : sun || moon || rising ? "Loading…" : "Set your birth data to unlock daily transits.");

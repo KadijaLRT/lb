@@ -23,15 +23,20 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
   const [goalsProgress, setGoalsProgress] = useState("");
 
   useEffect(() => {
-    const params = new URLSearchParams();
-    if (profile?.sun_sign) params.set("sun", profile.sun_sign);
-    if (profile?.moon_sign) params.set("moon", profile.moon_sign);
-    if (profile?.rising_sign) params.set("rising", profile.rising_sign);
-    fetch(`/api/transits?${params.toString()}`)
+    fetch("/api/transits", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sun: profile?.sun_sign,
+        moon: profile?.moon_sign,
+        rising: profile?.rising_sign,
+        natal_chart_notes: profile?.natal_chart_notes,
+      }),
+    })
       .then((r) => r.json())
       .then((d) => setVibe(d.vibe || ""))
       .catch(() => setVibe(""));
-  }, [profile?.sun_sign, profile?.moon_sign, profile?.rising_sign]);
+  }, [profile?.sun_sign, profile?.moon_sign, profile?.rising_sign, profile?.natal_chart_notes]);
 
   useEffect(() => {
     if (!profile?.id) return;
