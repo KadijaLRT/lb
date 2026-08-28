@@ -39,24 +39,46 @@ function pickVariant(list, date) {
   return list[dayIndex % list.length];
 }
 
-const ASPECT_MEANING = {
-  conjunction: "amplifying",
-  trine: "flowing easily with",
-  sextile: "opening a door with",
-  square: "creating friction with",
-  opposition: "pulling against",
+const PLANET_MEANING = {
+  Sun: "your core confidence and sense of self",
+  Moon: "your emotions and gut instincts",
+  Mercury: "how you think and communicate",
+  Venus: "love, money, and what you value",
+  Mars: "your drive, motivation, and temper",
+  Jupiter: "growth, luck, and opportunity",
+  Saturn: "discipline, responsibility, and limits",
+  Uranus: "surprises and sudden change",
+  Neptune: "dreams, intuition, and confusion",
+  Pluto: "intensity and deep change",
+};
+
+const ASPECT_PLAIN = {
+  conjunction: "is merging with",
+  trine: "is working smoothly with",
+  sextile: "is giving a gentle boost to",
+  square: "is creating friction with",
+  opposition: "is pulling against",
 };
 
 // Genuinely personal: built from the single tightest real transit-to-natal
 // aspect right now, using this person's actual chart. Two people with the
 // same Moon sign today will NOT see the same text unless their natal
 // charts happen to produce the same tightest aspect — vanishingly unlikely.
+// Written in plain language on purpose — no "orb," "transiting," "natal,"
+// or "applying/separating" jargon in the output, even though that's what's
+// being computed under the hood.
 function personalVibeFromAspects(natalLongitudes, now) {
   const aspects = currentTransitAspects(natalLongitudes, now, 3);
   if (!aspects.length) return null;
-  const tightest = aspects[0];
-  const verb = ASPECT_MEANING[tightest.aspect] || "aspecting";
-  return `Transiting ${tightest.transitBody} is ${verb} your natal ${tightest.natalBody} right now (orb ${tightest.orb}°, ${tightest.trend}) — that's what's actually active in your chart today.`;
+  const t = aspects[0];
+  const meaning = PLANET_MEANING[t.natalBody] || t.natalBody;
+  const verb = ASPECT_PLAIN[t.aspect] || "is affecting";
+  const isBuilding = t.trend.startsWith("applying");
+  const trendPhrase = isBuilding
+    ? "it's building over the next few days, so pay attention"
+    : "it's already easing off, so the strongest part has passed";
+
+  return `${t.transitBody} ${verb} ${meaning} right now — ${trendPhrase}.`;
 }
 
 function genericVibeFallback(placements, natal, date) {

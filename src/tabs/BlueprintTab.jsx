@@ -4,6 +4,7 @@ import AstroSnapshot from "../components/AstroSnapshot.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import LifeAreaExplorer from "../components/LifeAreaExplorer.jsx";
 import GoalsTracker from "../components/GoalsTracker.jsx";
+import FullChartReading from "../components/FullChartReading.jsx";
 
 export default function BlueprintTab({ profile, onSave }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -28,6 +29,8 @@ export default function BlueprintTab({ profile, onSave }) {
         rising={profile?.rising_sign}
         natalChartNotes={profile?.natal_chart_notes}
       />
+
+      <FullChartReading profile={profile} />
 
       <div className="border border-line rounded-2xl p-4 flex flex-col gap-2">
         <span className="text-xs uppercase tracking-[0.2em] text-muted">Core goals</span>

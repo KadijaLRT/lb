@@ -99,6 +99,20 @@ alter table goals enable row level security;
 drop policy if exists "allow all - phase1" on goals;
 create policy "allow all - phase1" on goals for all using (true) with check (true);
 
+-- Full chart reading — comprehensive natal synthesis with real computed
+-- life-cycle dates (Saturn/Jupiter returns). One row per user, regenerated
+-- on demand rather than daily-cached like the area readings.
+create table if not exists full_chart_readings (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references user_profile(id) on delete cascade unique,
+  content jsonb,
+  generated_at timestamptz default now()
+);
+
+alter table full_chart_readings enable row level security;
+drop policy if exists "allow all - phase1" on full_chart_readings;
+create policy "allow all - phase1" on full_chart_readings for all using (true) with check (true);
+
 -- Job application tracker — works toward the salary/job goal in core_goals
 create table if not exists job_applications (
   id uuid primary key default uuid_generate_v4(),

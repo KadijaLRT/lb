@@ -1,5 +1,61 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## New: Full Chart Reading (replaces astrocartography)
+A comprehensive natal chart synthesis — the "past, present, future" request,
+built honestly. Real computation wherever computation is possible, thematic
+interpretation (not fortune-telling) where it isn't.
+
+- **Real computed life-cycle dates**: `computeLifeCycles()` in
+  `_ephemeris.js` does actual numerical root-finding to locate the exact
+  date transiting Saturn/Jupiter return to their natal degree — genuine
+  astronomical events (Saturn ~29.5yr cycle, Jupiter ~11.9yr cycle),
+  computed from your specific birth data, not generic age estimates.
+  Verified against your chart: Saturn return #1 landed at 2024-03-09 for a
+  1994 birth — correct for a ~29.5-year cycle.
+- **Identity synthesis**: Sun/Moon/Rising/Mercury/Venus/Mars woven into one
+  cohesive picture, not six separate paragraphs.
+- **Current chapter + coming months**: real computed aspects across your
+  whole chart (not filtered to one life area like the daily readings), plus
+  a longer 150-day lookahead for themes still building.
+- **Honest framing, stated once**: the model is explicitly told this
+  describes real cycles and their traditional themes, not guaranteed
+  specific future events — no "you will get married" type claims. This
+  matches how legitimate professional astrologers actually work; confident
+  fortune-telling isn't more "professional," it's less honest.
+- New `full_chart_readings` table (one row per user, regenerate on demand
+  rather than daily-cached) — run the schema migration.
+- Verified end-to-end with your real chart data (life cycles computed
+  correctly, real current/upcoming aspects assembled, reaches the API
+  cleanly) and with missing natal data (clean 400 error, not a crash).
+
+## Plain-language, ADHD-friendly pass across every AI-facing surface
+The just-shipped "personalized vibe" fix was itself a good example of the
+problem: genuinely specific to your chart, but phrased as "orb 0.17°,
+transiting, separating" — real jargon. Fixed across the board, not just
+that one spot:
+
+- **`transits.js`**: rewrote the personal-vibe generator with plain-English
+  planet meanings ("Saturn is working smoothly with your core confidence
+  and sense of self" instead of "Transiting Saturn trine natal Sun, orb
+  0.17°"). Same real computed aspect underneath, translated into words
+  anyone can read without astrology background.
+- **`astrology.js`** (both the daily Go Deeper readings and the new
+  scenario-advice path): added an explicit voice rule banning "orb,"
+  "transiting," "natal," "applying," "separating" as bare jargon — the
+  model can still name planets and aspects, just has to say what they mean
+  in plain words in the same breath. Also reinforced the action_ideas
+  field as the explicit "what do I actually do" answer, not just
+  supplementary — it was already there, made sure it stays jargon-free too.
+- **`coach.js`**: added a general rule covering every domain it touches
+  (finance, content, astrology, anything) — explain terms as you use them,
+  don't assume background knowledge, and make sure every substantive
+  answer lands on both "what this means for you" and "what to do next,"
+  even briefly, rather than just handing over information with no next step.
+
+Verified all three modified endpoints (coach, Go Deeper daily reading, Go
+Deeper scenario advice) still execute cleanly end-to-end after these
+prompt changes.
+
 ## "Today's vibe" — from generic template to genuinely personal
 Fair complaint: this was 3 rotating phrases per Moon element, shared by
 anyone with the same Moon sign that day — barely about your actual chart.

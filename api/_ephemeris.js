@@ -312,3 +312,82 @@ export function astrocartographyChart(birthDateUTC, birthLat) {
   }
   return out;
 }
+
+// Real "return" dates — the actual moment a planet's transiting longitude
+// crosses back over the exact natal degree it occupied at birth (Saturn
+// return, Jupiter return, etc.). This is a genuine, computable astronomical
+// event, not a guess: numerical root-finding on the signed angular
+// difference between transiting and natal longitude, refined by linear
+// interpolation once a sign-crossing is found. A planet can cross the same
+// degree up to 3 times near a return (direct, retrograde, direct again) —
+// this returns the FIRST crossing found in the search window, which is
+// sufficient for a "this is roughly when it happens" milestone marker.
+function findReturnDate(body, natalLongitude, searchStart, searchEnd, stepDays = 3) {
+  let prevDiff = null;
+  let prevDate = null;
+  let current = new Date(searchStart);
+  const end = new Date(searchEnd);
+
+  while (current <= end) {
+    const lon = eclipticLongitude(body, current);
+    let diff = ((lon - natalLongitude + 540) % 360) - 180; // signed, in [-180, 180]
+
+    if (prevDiff !== null && Math.sign(diff) !== Math.sign(prevDiff) && Math.abs(diff - prevDiff) < 180) {
+      const frac = Math.abs(prevDiff) / (Math.abs(prevDiff) + Math.abs(diff));
+      return new Date(prevDate.getTime() + frac * (current.getTime() - prevDate.getTime()));
+    }
+    prevDiff = diff;
+    prevDate = new Date(current);
+    current = new Date(current.getTime() + stepDays * 86400000);
+  }
+  return null;
+}
+
+const ORBITAL_PERIOD_YEARS = { Saturn: 29.457, Jupiter: 11.862 };
+const YEAR_MS = 365.25 * 86400000;
+
+// For each of Saturn/Jupiter (the two classical "life cycle" markers in
+// real astrology — Saturn ~29.5yr, Jupiter ~11.9yr), find the most recent
+// PAST return and the next UPCOMING one relative to today. Real dates,
+// computed from this specific chart — not a generic "your Saturn return is
+// around 29" estimate.
+export function computeLifeCycles(natalLongitudes, birthDate, referenceDate = new Date()) {
+  const cycles = [];
+
+  for (const body of ["Saturn", "Jupiter"]) {
+    const natalLon = natalLongitudes[body];
+    if (natalLon == null) continue;
+    const periodYears = ORBITAL_PERIOD_YEARS[body];
+
+    const found = [];
+    for (let n = 1; n * periodYears < 100; n++) {
+      const center = new Date(birthDate.getTime() + n * periodYears * YEAR_MS);
+      const windowStart = new Date(center.getTime() - 200 * 86400000);
+      const windowEnd = new Date(center.getTime() + 200 * 86400000);
+      const date = findReturnDate(body, natalLon, windowStart, windowEnd);
+      if (date) found.push({ n, date });
+    }
+
+    const past = found.filter((f) => f.date <= referenceDate).sort((a, b) => b.date - a.date)[0];
+    const upcoming = found.filter((f) => f.date > referenceDate).sort((a, b) => a.date - b.date)[0];
+
+    if (past) {
+      cycles.push({
+        planet: body,
+        label: `${body} return #${past.n}`,
+        date: past.date.toISOString().slice(0, 10),
+        status: "past",
+      });
+    }
+    if (upcoming) {
+      cycles.push({
+        planet: body,
+        label: `${body} return #${upcoming.n}`,
+        date: upcoming.date.toISOString().slice(0, 10),
+        status: "upcoming",
+      });
+    }
+  }
+
+  return cycles.sort((a, b) => new Date(a.date) - new Date(b.date));
+}
