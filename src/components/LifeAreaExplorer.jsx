@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Briefcase, Users, Heart, Wallet, RefreshCw, Loader2, Lightbulb, MessageCircleQuestion, X } from "lucide-react";
 import { getInsight, saveInsight } from "../lib/db.js";
 import { localDateString } from "../lib/date.js";
+import ChatFollowUp from "./ChatFollowUp.jsx";
 
 const AREAS = [
   { key: "career", label: "Career", icon: Briefcase },
@@ -181,7 +182,12 @@ export default function LifeAreaExplorer({ profile }) {
         <p className="text-sm text-muted italic">No reading yet for this area.</p>
       )}
 
-      {current && <ReadingBlock result={current} />}
+      {current && (
+        <>
+          <ReadingBlock result={current} />
+          <ChatFollowUp area={active} profile={profile} priorReading={current.reading} />
+        </>
+      )}
 
       {error && <p className="text-sm text-fire">{error}</p>}
 
@@ -243,8 +249,9 @@ export default function LifeAreaExplorer({ profile }) {
 
             {scenarioError && <p className="text-sm text-fire">{scenarioError}</p>}
             {scenarioResult && (
-              <div className="pt-2 border-t border-line">
+              <div className="pt-2 border-t border-line flex flex-col gap-3">
                 <ReadingBlock result={scenarioResult} />
+                <ChatFollowUp area={active} profile={profile} priorReading={scenarioResult.reading} />
               </div>
             )}
           </>

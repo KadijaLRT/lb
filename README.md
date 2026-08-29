@@ -1,5 +1,32 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## New: back-and-forth follow-up chat for Go Deeper
+This had been on the list since early on. Every reading — the daily area
+readings, scenario advice, and the new Full Chart Reading — now has an
+"Ask a follow-up" chat underneath it.
+
+- **New shared endpoint** `api/astrology-chat.js`: recomputes the same real
+  transit-to-natal aspect data fresh for each reply (not just trusting the
+  model's memory of the earlier reading), so follow-up answers stay
+  grounded in your actual chart rather than drifting into generic
+  conversation. If you ask about something the real data doesn't cover, it
+  says so instead of inventing an aspect to sound more helpful.
+- **New reusable component** `ChatFollowUp.jsx`: collapsed by default (an
+  "Ask a follow-up" link), expands into a real chat thread — your messages
+  and the replies, Enter to send. Same plain-language, ADHD-friendly,
+  jargon-free voice as the readings themselves, but deliberately shorter
+  (2-4 sentences) since it's a conversation, not another full reading each
+  time.
+- Wired into all three surfaces: daily area readings, scenario advice, and
+  Full Chart Reading — the same component, just given different grounding
+  context (which area, and what was already said).
+- **Not persisted** — this is a live conversation, not saved to the
+  database. Closing/refreshing clears it. Said so directly in the UI
+  rather than implying it's saved when it isn't.
+- Verified all three conversation contexts (area-specific, whole-chart,
+  multi-turn history) plus the missing-input validation path — all execute
+  cleanly with no crashes.
+
 ## New: Full Chart Reading (replaces astrocartography)
 A comprehensive natal chart synthesis — the "past, present, future" request,
 built honestly. Real computation wherever computation is possible, thematic

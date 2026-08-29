@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Sparkles, RefreshCw, Loader2, Lightbulb, Clock } from "lucide-react";
 import { getFullChartReading, saveFullChartReading } from "../lib/db.js";
+import ChatFollowUp from "./ChatFollowUp.jsx";
 
 export default function FullChartReading({ profile }) {
   const [open, setOpen] = useState(false);
@@ -118,6 +119,13 @@ export default function FullChartReading({ profile }) {
                   </div>
                 </div>
               )}
+
+              <ChatFollowUp
+                profile={profile}
+                priorReading={[reading.identity_summary, reading.current_chapter, reading.upcoming_months]
+                  .filter(Boolean)
+                  .join(" ")}
+              />
             </div>
           )}
 
