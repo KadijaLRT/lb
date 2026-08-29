@@ -185,7 +185,7 @@ export default function LifeAreaExplorer({ profile }) {
       {current && (
         <>
           <ReadingBlock result={current} />
-          <ChatFollowUp area={active} profile={profile} priorReading={current.reading} />
+          <ChatFollowUp area={active} profile={profile} priorReading={current.reading} contextKey={`${active}:${today}`} />
         </>
       )}
 

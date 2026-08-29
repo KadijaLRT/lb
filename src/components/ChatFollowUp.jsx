@@ -1,12 +1,28 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Send, Loader2, MessagesSquare } from "lucide-react";
+import { listChatMessages, addChatMessage } from "../lib/db.js";
 
-export default function ChatFollowUp({ area, profile, priorReading }) {
+// When contextKey is given, the conversation is loaded from and saved to
+// Supabase (scoped to that key — e.g. "career:2026-08-28" or "full_chart").
+// Without one (scenario advice), it stays purely in-memory, matching the
+// fact that scenario readings themselves aren't saved either.
+export default function ChatFollowUp({ area, profile, priorReading, contextKey }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    if (!open || !contextKey || !profile?.id) return;
+    setLoadingHistory(true);
+    listChatMessages(profile.id, contextKey)
+      .then((rows) => setMessages(rows.map((r) => ({ role: r.role, content: r.content }))))
+      .catch((err) => console.error("Couldn't load chat history:", err))
+      .finally(() => setLoadingHistory(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, contextKey, profile?.id]);
 
   async function send() {
     if (!input.trim() || loading) return;
@@ -16,6 +32,13 @@ export default function ChatFollowUp({ area, profile, priorReading }) {
     setInput("");
     setLoading(true);
     setError("");
+
+    if (contextKey && profile?.id) {
+      addChatMessage(profile.id, contextKey, "user", userMsg.content).catch((e) =>
+        console.error("Couldn't save message:", e)
+      );
+    }
+
     try {
       const res = await fetch("/api/astrology-chat", {
         method: "POST",
@@ -31,6 +54,11 @@ export default function ChatFollowUp({ area, profile, priorReading }) {
       }
       if (!res.ok) throw new Error(data.error || "Couldn't get a reply.");
       setMessages((prev) => [...prev, { role: "assistant", content: data.reply }]);
+      if (contextKey && profile?.id) {
+        addChatMessage(profile.id, contextKey, "assistant", data.reply).catch((e) =>
+          console.error("Couldn't save reply:", e)
+        );
+      }
     } catch (err) {
       setError(err.message || "Something went wrong.");
       // Roll back the optimistic user message so a retry doesn't duplicate it
@@ -56,7 +84,11 @@ export default function ChatFollowUp({ area, profile, priorReading }) {
 
   return (
     <div className="flex flex-col gap-2 border-t border-line pt-3 mt-1">
-      <span className="text-xs uppercase tracking-[0.2em] text-muted">Follow-up chat (not saved)</span>
+      <span className="text-xs uppercase tracking-[0.2em] text-muted">
+        Follow-up chat{!contextKey && " (not saved)"}
+      </span>
+
+      {loadingHistory && <p className="text-xs text-muted">Loading conversation…</p>}
 
       {messages.length > 0 && (
         <div className="flex flex-col gap-2 max-h-64 overflow-y-auto">

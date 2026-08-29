@@ -99,6 +99,24 @@ alter table goals enable row level security;
 drop policy if exists "allow all - phase1" on goals;
 create policy "allow all - phase1" on goals for all using (true) with check (true);
 
+-- Persisted follow-up chat messages for Go Deeper readings. Scoped by a
+-- context_key so daily area readings get a fresh thread each day
+-- (e.g. "career:2026-08-28") while the Full Chart reading gets one ongoing
+-- thread ("full_chart"). Scenario advice deliberately has no persisted
+-- thread — matches the scenario reading itself not being saved either.
+create table if not exists chat_messages (
+  id uuid primary key default uuid_generate_v4(),
+  user_id uuid references user_profile(id) on delete cascade,
+  context_key text not null,
+  role text not null check (role in ('user', 'assistant')),
+  content text not null,
+  created_at timestamptz default now()
+);
+
+alter table chat_messages enable row level security;
+drop policy if exists "allow all - phase1" on chat_messages;
+create policy "allow all - phase1" on chat_messages for all using (true) with check (true);
+
 -- Full chart reading — comprehensive natal synthesis with real computed
 -- life-cycle dates (Saturn/Jupiter returns). One row per user, regenerated
 -- on demand rather than daily-cached like the area readings.

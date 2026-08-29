@@ -125,6 +125,7 @@ export default function FullChartReading({ profile }) {
                 priorReading={[reading.identity_summary, reading.current_chapter, reading.upcoming_months]
                   .filter(Boolean)
                   .join(" ")}
+                contextKey="full_chart"
               />
             </div>
           )}

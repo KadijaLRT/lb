@@ -1,5 +1,22 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Follow-up chat now persists (where the reading itself does too)
+New `chat_messages` table, scoped by a context key so history stays
+attached to the right reading:
+- **Daily area readings**: key is `"{area}:{date}"` (e.g. "career:2026-08-28")
+  — matches the reading's own daily reset, so tomorrow's fresh reading gets
+  a fresh conversation too, not yesterday's leftover thread.
+- **Full Chart Reading**: key is `"full_chart"` — one ongoing thread, since
+  the reading itself is also one persistent row, regenerated on demand
+  rather than daily.
+- **Scenario advice**: deliberately still NOT persisted — consistent with
+  the scenario reading itself never being saved either. Still labeled
+  "(not saved)" in the UI for that one.
+
+Opening a chat now loads its saved history first; each message (yours and
+the reply) is saved in the background as you go, same fire-and-forget
+pattern as the rest of the app's non-blocking saves.
+
 ## New: back-and-forth follow-up chat for Go Deeper
 This had been on the list since early on. Every reading — the daily area
 readings, scenario advice, and the new Full Chart Reading — now has an

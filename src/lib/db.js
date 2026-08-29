@@ -104,6 +104,29 @@ export async function getWeekSpend(accountId) {
   return (data || []).reduce((sum, t) => sum + Number(t.amount || 0), 0);
 }
 
+export async function listChatMessages(userId, contextKey) {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("context_key", contextKey)
+    .order("created_at", { ascending: true });
+  if (error) throw error;
+  return data || [];
+}
+
+export async function addChatMessage(userId, contextKey, role, content) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("chat_messages")
+    .insert({ user_id: userId, context_key: contextKey, role, content })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getFullChartReading(userId) {
   if (!supabase) return null;
   const { data, error } = await supabase
