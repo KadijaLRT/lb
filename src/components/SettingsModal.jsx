@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
+import { X, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { extractSignsFromNotes } from "../lib/extractSigns.js";
 import { parseNatalLongitudes, parseHousePlacements, parseNatalAspects } from "../../api/_ephemeris.js";
 
@@ -14,7 +14,7 @@ const FIELDS = [
   { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea", section: "Goals" },
   {
     key: "natal_chart_notes",
-    label: "Full natal chart (paste or upload — Sun/Moon/Rising are pulled from this automatically, no need to enter them separately)",
+    label: "Full natal chart (paste it — Sun/Moon/Rising are pulled from this automatically, no need to enter them separately)",
     type: "textarea",
     section: "Astrology",
   },
@@ -51,76 +51,12 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [form, setForm] = useState({});
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
-  const [parsingImages, setParsingImages] = useState(false);
-  const [imageCount, setImageCount] = useState(0);
-  const [detected, setDetected] = useState(null);
 
   useEffect(() => {
     if (profile) setForm(profile);
   }, [profile]);
 
   if (!open) return null;
-
-  async function handleScreenshotUpload(e) {
-    const files = Array.from(e.target.files || []);
-    if (!files.length) return;
-    if (files.length > 5) {
-      setError("Max 5 screenshots at a time.");
-      e.target.value = "";
-      return;
-    }
-    setParsingImages(true);
-    setImageCount(files.length);
-    setError("");
-    try {
-      const images = await Promise.all(
-        files.map(
-          (file) =>
-            new Promise((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(reader.result); // full data: URL
-              reader.onerror = () => reject(new Error(`Couldn't read ${file.name}`));
-              reader.readAsDataURL(file);
-            })
-        )
-      );
-
-      // Base64 inflates size by ~33%; server limit is 35mb. Fail fast with a
-      // clear message instead of a slow upload that dies with a raw 413.
-      const totalBytes = images.reduce((sum, dataUrl) => sum + dataUrl.length * 0.75, 0);
-      if (totalBytes > 30 * 1024 * 1024) {
-        throw new Error("Those screenshots are too large combined (over ~30MB). Try fewer at a time, or lower-resolution crops.");
-      }
-      const res = await fetch("/api/parse-natal-screenshots", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ images }),
-      });
-      const raw = await res.text();
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        throw new Error(
-          res.ok ? "Server returned an unreadable response." : `Server error (${res.status}): ${raw.slice(0, 200) || "no details"}`
-        );
-      }
-      if (!res.ok) throw new Error(data.error || "Screenshot parsing failed.");
-      const combinedNotes = form.natal_chart_notes ? `${form.natal_chart_notes}\n\n${data.notes}` : data.notes;
-      const derived = extractSignsFromNotes(combinedNotes);
-      setForm((prev) => ({ ...prev, natal_chart_notes: combinedNotes, ...derived }));
-      if (data.truncated) {
-        setError(data.warning || "Extracted data may be cut off — check the notes field.");
-      } else if (derived.sun_sign || derived.moon_sign || derived.rising_sign) {
-        setDetected(derived);
-      }
-    } catch (err) {
-      setError(err.message || "Couldn't parse those screenshots.");
-    } finally {
-      setParsingImages(false);
-      e.target.value = "";
-    }
-  }
 
   async function handleSubmit(e) {
     e.preventDefault();
@@ -177,31 +113,6 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
                 <p className="text-[10px] uppercase tracking-[0.25em] text-clay pt-2 first:pt-0">{f.section}</p>
               )}
               <label className="text-xs uppercase tracking-[0.15em] text-muted">{f.label}</label>
-              {f.key === "natal_chart_notes" && (
-                <label className="self-start flex items-center gap-2 text-xs px-3 py-1.5 rounded-full border border-line hover:border-clay cursor-pointer transition-colors mb-1">
-                  {parsingImages ? <Loader2 size={12} className="animate-spin" /> : <ImageIcon size={12} />}
-                  {parsingImages ? `Reading ${imageCount} screenshot${imageCount > 1 ? "s" : ""}…` : "Upload screenshots instead (up to 5)"}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handleScreenshotUpload}
-                    className="hidden"
-                    disabled={parsingImages}
-                  />
-                </label>
-              )}
-              {f.key === "natal_chart_notes" && detected && (
-                <p className="text-xs text-clay -mt-0.5 mb-1">
-                  Detected: {[
-                    detected.sun_sign && `Sun ${detected.sun_sign}`,
-                    detected.moon_sign && `Moon ${detected.moon_sign}`,
-                    detected.rising_sign && `Rising ${detected.rising_sign}`,
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
-              )}
               {f.type === "textarea" ? (
                 <textarea
                   rows={f.key === "natal_chart_notes" ? 8 : 3}

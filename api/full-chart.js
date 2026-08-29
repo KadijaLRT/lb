@@ -59,7 +59,7 @@ export default async function handler(req, res) {
     const natalLongitudes = parseNatalLongitudes(profile?.natal_chart_notes || "");
     if (Object.keys(natalLongitudes).length === 0) {
       return res.status(400).json({
-        error: "This needs your full natal chart (not just Sun/Moon/Rising signs) to compute real life-cycle dates. Add it in Settings — paste or upload screenshots of your chart.",
+        error: "This needs your full natal chart (not just Sun/Moon/Rising signs) to compute real life-cycle dates. Paste it in Settings first.",
       });
     }
 

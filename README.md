@@ -1,5 +1,41 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Screenshot upload removed — copy/paste only now
+Removed entirely: `api/parse-natal-screenshots.js` (deleted), the upload
+button/file input/related state in `SettingsModal.jsx`, and the leftover
+"or upload screenshots" wording in `full-chart.js`'s error message. The
+live chart-parsing preview under the natal chart notes field (added last
+round) still works exactly the same for paste — that was never
+upload-specific, it fires on any text change. No functionality lost for
+the paste path; upload path is just gone. Verified no dangling references
+remain anywhere in the codebase, clean build, bundle size dropped slightly
+as expected.
+
+## Three real parsing bugs found and fixed — your exact chart text tested
+Your live preview did exactly its job: it showed 0/0/0 because the parser
+genuinely couldn't read your pasted format. Reproduced the exact failure
+with your real text first, then fixed each root cause:
+
+1. **Longitudes**: `13°54' Leo` has an apostrophe (arcminute mark) sitting
+   directly before the sign name — the regex required whitespace
+   immediately after the minutes digits, so the apostrophe broke every
+   single match. Now tolerates an optional `'`/`′` there.
+2. **Houses**: your format writes `(XI House)` and even `(Retrograde, VI
+   House)` — the old regex required the parentheses to contain *nothing
+   but* the roman numeral. Rewrote to search a bounded window near each
+   planet's name for a valid roman numeral token instead of requiring an
+   exact parenthetical match — handles "in XI", "(XI)", "(XI House)", and
+   "(Retrograde, VI House)" all at once.
+3. **Aspects**: your format gives real orb degrees — `(Orb 9°37')` — which
+   is genuinely better data than the arbitrary score the old parser
+   expected (`(43)`). Now handles both, extracting actual orb-in-degrees
+   when given.
+
+**Verified against your complete, real pasted text — not a sample**: 14 of
+14 points (10 planets + Lilith/Nodes/Fortune), 12 of 12 house placements,
+27 of 27 aspects, all with real orb degrees now attached. Also confirmed
+the previously-working format still parses correctly — no regression.
+
 ## Live chart-parsing preview + removed orphaned fields
 Two fixes from your report:
 

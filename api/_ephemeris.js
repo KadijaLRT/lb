@@ -173,7 +173,7 @@ export function parseNatalLongitudes(notes) {
       "i"
     );
     const reB = new RegExp(
-      `\\b${body}\\b[^A-Za-z0-9]{0,6}(\\d{1,2})(?:[°º]\\s*(\\d{1,2})|\\.(\\d{1,2}))?\\s+(${signPattern})`,
+      `\\b${body}\\b[^A-Za-z0-9]{0,6}(\\d{1,2})(?:[°º]\\s*(\\d{1,2})|\\.(\\d{1,2}))?['′]?\\s+(${signPattern})`,
       "i"
     );
 
@@ -210,15 +210,21 @@ const ROMAN_TO_NUM = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8,
 export function parseHousePlacements(notes) {
   if (!notes || typeof notes !== "string") return {};
   const out = {};
+  // Ordered longest-first so "XII"/"VIII" aren't cut short by an earlier
+  // partial alternative — with \b anchors this isn't strictly required, but
+  // it's cheap insurance against any regex-engine edge case.
+  const ROMAN_ALT = "VIII|III|VII|XII|II|IV|VI|IX|XI|I|V|X";
   for (const body of NATAL_POINTS) {
-    // "<body> in <roman>" — e.g. "Sun in XI"
-    let match = notes.match(new RegExp(`\\b${body}\\b\\s+in\\s+([IVXLCDM]+)\\b`, "i"));
-    if (!match) {
-      // "<body> ... (<roman>)" on the same line — e.g. "Sun: Leo 13°54' (XI)"
-      match = notes.match(new RegExp(`\\b${body}\\b[^\\n]*?\\(([IVXLCDM]+)\\)`, "i"));
-    }
-    if (!match) continue;
-    const roman = match[1].toUpperCase();
+    // Look within a window after the body's mention (same line, capped so
+    // it can't spill into a different planet's entry) for a roman numeral
+    // — tolerates "(XI)", "in XI", "(XI House)", "(Retrograde, VI House)",
+    // or any other surrounding wording, since we're not requiring the
+    // parens to contain ONLY the numeral anymore.
+    const windowMatch = notes.match(new RegExp(`\\b${body}\\b([^\\n]{0,60})`, "i"));
+    if (!windowMatch) continue;
+    const romanMatch = windowMatch[1].match(new RegExp(`\\b(${ROMAN_ALT})\\b`));
+    if (!romanMatch) continue;
+    const roman = romanMatch[1].toUpperCase();
     if (ROMAN_TO_NUM[roman]) out[body] = ROMAN_TO_NUM[roman];
   }
   return out;
@@ -437,17 +443,30 @@ const ASPECT_WORDS = ["Conjunction", "Opposition", "Square", "Trine", "Sextile"]
 export function parseNatalAspects(notes) {
   if (!notes || typeof notes !== "string") return [];
   const pattern = new RegExp(
-    `([A-Za-z][A-Za-z ]*?)\\s+(${ASPECT_WORDS.join("|")})\\s+([A-Za-z][A-Za-z ]*?)\\s*\\(([+-]?\\d+)\\)`,
+    `([A-Za-z][A-Za-z ]*?)\\s+(${ASPECT_WORDS.join("|")})\\s+([A-Za-z][A-Za-z ]*?)\\s*\\(([^)]+)\\)`,
     "gi"
   );
   const results = [];
   let match;
   while ((match = pattern.exec(notes)) !== null) {
+    const raw = match[4].trim();
+    // Two known formats: a bare arbitrary score "(43)", or a real orb
+    // "(Orb 9°37')" — the orb is actually more useful (genuine exactness in
+    // degrees), so extract it as a proper number when present.
+    let orb = null;
+    let value = null;
+    const orbMatch = raw.match(/orb\s*(\d{1,2})[°º]?\s*(?:(\d{1,2})['′]?)?/i);
+    if (orbMatch) {
+      orb = Number(orbMatch[1]) + (orbMatch[2] ? Number(orbMatch[2]) / 60 : 0);
+    } else if (/^[+-]?\d+$/.test(raw)) {
+      value = Number(raw);
+    }
     results.push({
       bodyA: match[1].trim(),
       aspect: match[2].toLowerCase(),
       bodyB: match[3].trim(),
-      value: Number(match[4]),
+      orb,
+      value,
     });
   }
   return results;
