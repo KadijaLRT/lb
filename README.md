@@ -1,5 +1,46 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Live chart-parsing preview + removed orphaned fields
+Two fixes from your report:
+
+- **New live preview under the natal chart notes field in Settings**:
+  updates as you type/paste/upload, showing exactly what's being detected
+  — "Reading this correctly: 10 of 10 planets, 12 house placements, 27
+  aspects detected" in clay, or a clear red warning if 0 planets parsed
+  ("check the format"), or a neutral note if the field's empty. This
+  directly answers "is my paste/upload actually working" without needing
+  to save, leave Settings, and check the vibe card to find out — the
+  single biggest diagnostic gap in the upload/paste flow before this.
+- **`birth_lat` and `birth_lng` removed from Settings** — audited every
+  field and found these two were being collected and saved but consumed
+  by literally nothing, since astrocartography (their only purpose) was
+  removed earlier. Exactly the kind of disconnect you asked me to check
+  for. The database columns stay (harmless, no destructive migration), just
+  the dead UI is gone.
+- **Better diagnostics in `transits.js`**: the "Today's vibe" fallback
+  message now distinguishes "you haven't added a chart yet" from "your
+  chart is saved but couldn't be read" — previously both cases showed the
+  identical generic message, which is exactly what made this bug
+  invisible to debug from the screenshot alone.
+- Verified: `_ephemeris.js`'s parsers now import cleanly into the frontend
+  (confirms it's genuinely dependency-free, as designed) and the preview
+  logic tested correctly against empty, garbage, and valid chart text.
+
+## Full audit: every Settings field, what it's wired to
+- **name** → header display, coach context
+- **pronoun** → coach context (instructed to use it naturally)
+- **birth_date, birth_time, birth_utc_offset** → Full Chart Reading's real
+  computed Saturn/Jupiter return dates
+- **birth_location** → coach context (available, lightly used)
+- **weekly_budget** → synced to `financial_accounts.weekly_spend_limit`,
+  what the Finance tab actually displays
+- **core_goals** → coach context, Job Application tracker's salary-goal
+  note, Goals Tracker's "Import from Core Goals," content generation context
+- **natal_chart_notes** → everything astrology: daily readings, Full Chart
+  Reading, follow-up chat, Today's Vibe, auto-derived Sun/Moon/Rising
+
+Nothing left unaccounted for.
+
 ## Nothing from your chart is dropped anymore — full audit and fix
 You were right that a lot was being silently left out. Audited everything
 your chart notes actually contain versus what was being parsed:

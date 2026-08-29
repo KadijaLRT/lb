@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Settings } from "lucide-react";
+import { Settings, ChevronDown } from "lucide-react";
 import AstroSnapshot from "../components/AstroSnapshot.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import LifeAreaExplorer from "../components/LifeAreaExplorer.jsx";
@@ -8,6 +8,7 @@ import FullChartReading from "../components/FullChartReading.jsx";
 
 export default function BlueprintTab({ profile, onSave }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [goalsListOpen, setGoalsListOpen] = useState(false);
 
   return (
     <div className="flex flex-col gap-6">
@@ -30,31 +31,42 @@ export default function BlueprintTab({ profile, onSave }) {
         natalChartNotes={profile?.natal_chart_notes}
       />
 
-      <FullChartReading profile={profile} />
-
-      <div className="border border-line rounded-2xl p-4 flex flex-col gap-2">
-        <span className="text-xs uppercase tracking-[0.2em] text-muted">Core goals</span>
-        {profile?.core_goals ? (
-          <ul className="flex flex-col gap-1.5">
-            {profile.core_goals
-              .split("\n")
-              .map((line) => line.trim())
-              .filter(Boolean)
-              .map((line, i) => (
-                <li key={i} className="flex items-start gap-2 text-cream/90 leading-relaxed">
-                  <span className="text-clay mt-1.5 w-1 h-1 rounded-full bg-clay shrink-0" />
-                  {line}
-                </li>
-              ))}
-          </ul>
-        ) : (
-          <p className="text-cream/90 leading-relaxed">
-            Nothing set yet — add your life vision notes here so the coach factors them into every response.
-          </p>
+      <div className="border border-line rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setGoalsListOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-3"
+        >
+          <span className="text-xs uppercase tracking-[0.2em] text-muted">Core goals</span>
+          <ChevronDown size={16} className={`text-muted transition-transform ${goalsListOpen ? "rotate-180" : ""}`} />
+        </button>
+        {goalsListOpen && (
+          <div className="border-t border-line p-4">
+            {profile?.core_goals ? (
+              <ul className="flex flex-col gap-1.5">
+                {profile.core_goals
+                  .split("\n")
+                  .map((line) => line.trim())
+                  .filter(Boolean)
+                  .map((line, i) => (
+                    <li key={i} className="flex items-start gap-2 text-cream/90 leading-relaxed">
+                      <span className="text-clay mt-1.5 w-1 h-1 rounded-full bg-clay shrink-0" />
+                      {line}
+                    </li>
+                  ))}
+              </ul>
+            ) : (
+              <p className="text-cream/90 leading-relaxed">
+                Nothing set yet — add your life vision notes here so the coach factors them into every response.
+              </p>
+            )}
+          </div>
         )}
       </div>
 
       <GoalsTracker profile={profile} />
+
+      <FullChartReading profile={profile} />
 
       <LifeAreaExplorer profile={profile} />
 

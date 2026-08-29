@@ -93,7 +93,7 @@ function personalVibeFromAspects(natalLongitudes, placements, now) {
   return `${positionLine} ${aspectPhrases.join(", and ")}.`;
 }
 
-function genericVibeFallback(placements, natal, date) {
+function genericVibeFallback(placements, natal, date, hasNotesButUnparseable) {
   const sunSign = placements.Sun.sign;
   const moonSign = placements.Moon.sign;
   const moonElement = ELEMENT_BY_SIGN[moonSign];
@@ -107,7 +107,13 @@ function genericVibeFallback(placements, natal, date) {
 
   const moods = MOOD_BY_ELEMENT[moonElement] || [];
   const mood = pickVariant(moods, date) || "";
-  return `Moon in ${moonSign}: ${mood} (Sun's in ${sunSign} for the season. Add your full natal chart in Settings for a reading built from your actual placements instead of this general one.)`;
+  // Distinguish the two failure modes so this is actually debuggable next
+  // time, instead of one message covering both "nothing saved" and
+  // "something's saved but couldn't be read."
+  const reason = hasNotesButUnparseable
+    ? "Your chart notes are saved but couldn't be read — check the format in Settings (the live preview there shows exactly what's detected)."
+    : "Add your full natal chart in Settings for a reading built from your actual placements instead of this general one.";
+  return `Moon in ${moonSign}: ${mood} (Sun's in ${sunSign} for the season. ${reason})`;
 }
 
 export default async function handler(req, res) {
@@ -132,7 +138,8 @@ export default async function handler(req, res) {
       personalized = true;
     }
     if (!vibe) {
-      vibe = genericVibeFallback(placements, natal, now);
+      const hasNotesButUnparseable = !!(natal_chart_notes && natal_chart_notes.trim());
+      vibe = genericVibeFallback(placements, natal, now, hasNotesButUnparseable);
     }
 
     return res.status(200).json({

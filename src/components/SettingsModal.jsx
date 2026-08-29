@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { X, Loader2, Image as ImageIcon } from "lucide-react";
+import { X, Loader2, Image as ImageIcon, CheckCircle2, AlertCircle } from "lucide-react";
 import { extractSignsFromNotes } from "../lib/extractSigns.js";
+import { parseNatalLongitudes, parseHousePlacements, parseNatalAspects } from "../../api/_ephemeris.js";
 
 const FIELDS = [
   { key: "name", label: "Name", type: "text", section: "About you" },
@@ -8,8 +9,6 @@ const FIELDS = [
   { key: "birth_date", label: "Birth date", type: "date", section: "Birth data" },
   { key: "birth_time", label: "Birth time", type: "time", section: "Birth data" },
   { key: "birth_location", label: "Birth location", type: "text", section: "Birth data" },
-  { key: "birth_lat", label: "Birth latitude (e.g. 18.0 for Kingston)", type: "number", section: "Birth data" },
-  { key: "birth_lng", label: "Birth longitude (e.g. -76.8, west is negative)", type: "number", section: "Birth data" },
   { key: "birth_utc_offset", label: "Timezone at birth, UTC offset (e.g. -5)", type: "number", section: "Birth data" },
   { key: "weekly_budget", label: "Weekly budget ($)", type: "number", section: "Finance" },
   { key: "core_goals", label: "Core goals / life vision (one per line)", type: "textarea", section: "Goals" },
@@ -20,6 +19,33 @@ const FIELDS = [
     section: "Astrology",
   },
 ];
+
+function ChartParsePreview({ notes }) {
+  if (!notes || !notes.trim()) {
+    return <p className="text-xs text-muted italic mt-1">Nothing pasted yet — this is what powers every reading in the app.</p>;
+  }
+
+  const planets = parseNatalLongitudes(notes);
+  const houses = parseHousePlacements(notes);
+  const aspects = parseNatalAspects(notes);
+  const planetCount = Object.keys(planets).length;
+
+  if (planetCount === 0) {
+    return (
+      <p className="text-xs text-fire flex items-center gap-1.5 mt-1">
+        <AlertCircle size={12} className="shrink-0" />
+        Couldn't read any planets from this text — the readings will fall back to generic. Check the format (e.g. "Sun: Leo 13°54'").
+      </p>
+    );
+  }
+
+  return (
+    <p className="text-xs text-clay flex items-center gap-1.5 mt-1">
+      <CheckCircle2 size={12} className="shrink-0" />
+      Reading this correctly: {planetCount} of 10 planets, {Object.keys(houses).length} house placements, {aspects.length} aspects detected.
+    </p>
+  );
+}
 
 export default function SettingsModal({ open, onClose, profile, onSave }) {
   const [form, setForm] = useState({});
@@ -113,7 +139,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
       Object.assign(patch, derived);
       // Empty strings on date/time/numeric columns make Postgres reject the
       // WHOLE update, not just that field — coerce blanks to null instead.
-      const NUMERIC_FIELDS = ["weekly_budget", "birth_lat", "birth_lng", "birth_utc_offset"];
+      const NUMERIC_FIELDS = ["weekly_budget", "birth_utc_offset"];
       Object.keys(patch).forEach((key) => {
         if (patch[key] === "") {
           patch[key] = null;
@@ -191,6 +217,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
                   className="w-full bg-transparent border-b border-line focus:border-clay outline-none text-cream py-1"
                 />
               )}
+              {f.key === "natal_chart_notes" && <ChartParsePreview notes={form.natal_chart_notes} />}
             </div>
           ))}
           {error && <p className="text-sm text-fire">{error}</p>}
