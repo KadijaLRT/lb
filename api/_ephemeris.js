@@ -30,6 +30,16 @@ export const BODIES = [
   "Jupiter", "Saturn", "Uranus", "Neptune", "Pluto",
 ];
 
+// Lilith and the Nodes aren't simple two-body orbits (Lilith is the Moon's
+// orbital apogee, the Nodes are where its orbital plane crosses the
+// ecliptic) — no real transit-computation formula for them here, so they
+// stay OUT of BODIES (which drives actual ephemeris math). But their natal
+// positions are still real data the user provides, and it was being
+// silently dropped everywhere — this list is for PARSING their chart text
+// only, never for computing where they are today.
+const EXTRA_NATAL_POINTS = ["Lilith", "North Node", "South Node", "Fortune"];
+const NATAL_POINTS = [...BODIES, ...EXTRA_NATAL_POINTS];
+
 const DEG = Math.PI / 180;
 const RAD = 180 / Math.PI;
 
@@ -157,7 +167,7 @@ export function parseNatalLongitudes(notes) {
   if (!notes || typeof notes !== "string") return {};
   const signPattern = SIGNS.join("|");
   const out = {};
-  for (const body of BODIES) {
+  for (const body of NATAL_POINTS) {
     const reA = new RegExp(
       `\\b${body}\\b[^A-Za-z0-9]{0,6}(${signPattern})\\s+(\\d{1,2})(?:[°º]\\s*(\\d{1,2}))?`,
       "i"
@@ -186,6 +196,30 @@ export function parseNatalLongitudes(notes) {
     if (signIdx === -1) continue;
     const degreeInSign = Number(deg) + (min ? Number(min) / 60 : 0);
     out[body] = normDeg(signIdx * 30 + degreeInSign);
+  }
+  return out;
+}
+
+const ROMAN_TO_NUM = { I: 1, II: 2, III: 3, IV: 4, V: 5, VI: 6, VII: 7, VIII: 8, IX: 9, X: 10, XI: 11, XII: 12 };
+
+// Parses which house each planet occupies — this was the gap: real chart
+// notes often contain house placements ("Sun in XI" or "Sun: Leo 13°54 (XI)")
+// but nothing was ever extracting them, so readings only ever referenced
+// generic textbook house-sign correspondence (e.g. "the 10th house means
+// career") instead of where THIS chart's planets actually sit.
+export function parseHousePlacements(notes) {
+  if (!notes || typeof notes !== "string") return {};
+  const out = {};
+  for (const body of NATAL_POINTS) {
+    // "<body> in <roman>" — e.g. "Sun in XI"
+    let match = notes.match(new RegExp(`\\b${body}\\b\\s+in\\s+([IVXLCDM]+)\\b`, "i"));
+    if (!match) {
+      // "<body> ... (<roman>)" on the same line — e.g. "Sun: Leo 13°54' (XI)"
+      match = notes.match(new RegExp(`\\b${body}\\b[^\\n]*?\\(([IVXLCDM]+)\\)`, "i"));
+    }
+    if (!match) continue;
+    const roman = match[1].toUpperCase();
+    if (ROMAN_TO_NUM[roman]) out[body] = ROMAN_TO_NUM[roman];
   }
   return out;
 }
@@ -390,4 +424,31 @@ export function computeLifeCycles(natalLongitudes, birthDate, referenceDate = ne
   }
 
   return cycles.sort((a, b) => new Date(a.date) - new Date(b.date));
+}
+
+const ASPECT_WORDS = ["Conjunction", "Opposition", "Square", "Trine", "Sextile"];
+
+// Parses the person's own NATAL aspect list — e.g. "Sun Conjunction Moon
+// (43), Venus Trine Uranus (16)" — permanent aspects between their own
+// planets, distinct from today's transit-to-natal aspects. This describes
+// core, unchanging personality wiring and was previously never parsed or
+// used anywhere, even though it's exactly the kind of data a real natal
+// chart reading should be grounded in.
+export function parseNatalAspects(notes) {
+  if (!notes || typeof notes !== "string") return [];
+  const pattern = new RegExp(
+    `([A-Za-z][A-Za-z ]*?)\\s+(${ASPECT_WORDS.join("|")})\\s+([A-Za-z][A-Za-z ]*?)\\s*\\(([+-]?\\d+)\\)`,
+    "gi"
+  );
+  const results = [];
+  let match;
+  while ((match = pattern.exec(notes)) !== null) {
+    results.push({
+      bodyA: match[1].trim(),
+      aspect: match[2].toLowerCase(),
+      bodyB: match[3].trim(),
+      value: Number(match[4]),
+    });
+  }
+  return results;
 }

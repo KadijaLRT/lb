@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { currentPlacements, parseNatalLongitudes, currentTransitAspects } from "./_ephemeris.js";
+import { currentPlacements, parseNatalLongitudes, parseHousePlacements, parseNatalAspects, currentTransitAspects } from "./_ephemeris.js";
 
 const AREA_FOCUS = {
   career: "Focus on the 10th house / Midheaven, Saturn, the Sun, and Mars. Cover natural strengths, likely friction points, and what kind of work environment actually suits this chart.",
@@ -28,10 +28,12 @@ Voice:
 - PLAIN LANGUAGE, ADHD-friendly: one idea per sentence, short sentences, no stacked clauses. Never use "orb," "transiting," "natal," "applying," or "separating" as standalone jargon — if you reference degree-closeness or timing, say it in plain words instead (e.g. "this is exact right now" instead of "0.2° orb"; "still building over the next few days" instead of "applying"; "already past its peak" instead of "separating"). You can and should name the planets and the general idea of an aspect (e.g. "Saturn is putting pressure on your Sun") — just never the technical measurement language around it. A reader with zero astrology background should follow every sentence.
 
 Hard rules for the "reading" field:
-- Use ONLY the aspects listed in the data. Never invent an aspect, degree, or placement not explicitly given.
-- Open by naming the single most exact (smallest-orb) relevant aspect and what it means concretely for ${area} — not generic sign-trait description. State it in plain terms per the voice rules above, not as a technical measurement.
+- Use ONLY the aspects listed in the data — both the today's transit aspects AND this chart's own permanent natal aspects, whichever are given. Never invent an aspect, degree, or placement not explicitly given, and never skip real data that's provided in favor of a generic assumption.
+- You'll be given TWO kinds of aspects: transit-to-natal (today's temporary activation — these change day to day) and natal-to-natal (permanent aspects between this person's own planets — these never change, they're core wiring). Use both, and be clear about which is which: natal aspects establish who they consistently are in this area, transit aspects establish what's specifically active about it right now.
+- Open by naming the single most exact (smallest-orb) relevant TRANSIT aspect and what it means concretely for ${area} — not generic sign-trait description. State it in plain terms per the voice rules above, not as a technical measurement.
 - Explicitly distinguish NOW from SOON in plain words: if an aspect is building, say what to watch for as it intensifies over the coming days; if it's already past its peak, say what that easing means moving forward.
 - Do not describe personality traits of the person's Sun/Moon/Rising sign in the abstract (no "Leos are natural leaders" type sentences) — every sentence should trace back to one of the specific computed aspects given.
+- If this chart's real house placements are given in the data, use them — this is what makes a reading actually personal instead of generic. A career reading should know whether this person's Sun is really in their 10th house or somewhere else entirely, and say so if it changes the picture (e.g. Sun in the 11th house makes career more about community/networks than solo achievement). Don't assume standard textbook house-sign correspondence when real data contradicts it.
 - This reading is about the person in general — their patterns, tendencies, what's genuinely happening in their chart right now. Not a goal-tracking check-in.
 - STRICT LIMIT: 200 words maximum, no exceptions. Budget your paragraphs — if you're covering multiple aspects, keep each one to 1-2 sentences rather than a full paragraph per aspect. A shorter complete reading is always better than a longer one that risks cutting off.
 - Do NOT end the reading itself with an action/suggestion line — that goes in the separate action_ideas field instead, so don't duplicate it in prose.
@@ -146,7 +148,30 @@ export default async function handler(req, res) {
             .join("\n")
         : "No major aspects (within standard orb) between today's transits and this chart's key placements for this area right now.";
 
-      dataBlock = `Today's exact transiting positions: ${positionsLine}\n\nActive transit-to-natal aspects relevant to ${area} (real computed data, sorted tightest first):\n${aspectLines}`;
+      const housePlacements = parseHousePlacements(profile?.natal_chart_notes || "");
+      const houseLines = Object.entries(housePlacements)
+        .map(([body, house]) => `${body} in house ${house}`)
+        .join(", ");
+      const houseBlock = houseLines
+        ? `\n\nThis chart's actual house placements (use these instead of assuming generic textbook house-sign correspondence — e.g. this person's Sun might not be in the 10th house at all):\n${houseLines}`
+        : "";
+
+      // Permanent natal-to-natal aspects (their own chart's core wiring) —
+      // previously parsed nowhere despite being real data the user provided.
+      // Filtered to whichever involve this area's key bodies, same
+      // relevance logic as the transit aspects above.
+      const natalAspects = parseNatalAspects(profile?.natal_chart_notes || "");
+      const relevantNatalAspects = natalAspects.filter(
+        (a) => keyBodies.includes(a.bodyA) || keyBodies.includes(a.bodyB)
+      );
+      const natalAspectLines = relevantNatalAspects.length
+        ? relevantNatalAspects.map((a) => `Natal ${a.bodyA} ${a.aspect} ${a.bodyB}`).join("\n")
+        : "";
+      const natalAspectBlock = natalAspectLines
+        ? `\n\nThis chart's own PERMANENT natal aspects relevant to ${area} (core wiring, not today's transits):\n${natalAspectLines}`
+        : "";
+
+      dataBlock = `Today's exact transiting positions: ${positionsLine}\n\nActive transit-to-natal aspects relevant to ${area} (real computed data, sorted tightest first):\n${aspectLines}${houseBlock}${natalAspectBlock}`;
     } else {
       // No parseable natal degrees — fall back to sign-level data only.
       // Explicitly tell the model this is lower precision so it doesn't

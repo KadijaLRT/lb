@@ -40,16 +40,16 @@ function pickVariant(list, date) {
 }
 
 const PLANET_MEANING = {
-  Sun: "your core confidence and sense of self",
-  Moon: "your emotions and gut instincts",
-  Mercury: "how you think and communicate",
-  Venus: "love, money, and what you value",
-  Mars: "your drive, motivation, and temper",
-  Jupiter: "growth, luck, and opportunity",
+  Sun: "core confidence and sense of self",
+  Moon: "emotions and gut instincts",
+  Mercury: "way of thinking and communicating",
+  Venus: "sense of love, money, and values",
+  Mars: "drive, motivation, and temper",
+  Jupiter: "sense of growth, luck, and opportunity",
   Saturn: "discipline, responsibility, and limits",
-  Uranus: "surprises and sudden change",
+  Uranus: "capacity for surprises and sudden change",
   Neptune: "dreams, intuition, and confusion",
-  Pluto: "intensity and deep change",
+  Pluto: "capacity for intensity and deep change",
 };
 
 const ASPECT_PLAIN = {
@@ -60,25 +60,37 @@ const ASPECT_PLAIN = {
   opposition: "is pulling against",
 };
 
-// Genuinely personal: built from the single tightest real transit-to-natal
-// aspect right now, using this person's actual chart. Two people with the
-// same Moon sign today will NOT see the same text unless their natal
-// charts happen to produce the same tightest aspect — vanishingly unlikely.
-// Written in plain language on purpose — no "orb," "transiting," "natal,"
-// or "applying/separating" jargon in the output, even though that's what's
-// being computed under the hood.
-function personalVibeFromAspects(natalLongitudes, now) {
-  const aspects = currentTransitAspects(natalLongitudes, now, 3);
-  if (!aspects.length) return null;
-  const t = aspects[0];
-  const meaning = PLANET_MEANING[t.natalBody] || t.natalBody;
-  const verb = ASPECT_PLAIN[t.aspect] || "is affecting";
-  const isBuilding = t.trend.startsWith("applying");
-  const trendPhrase = isBuilding
-    ? "it's building over the next few days, so pay attention"
-    : "it's already easing off, so the strongest part has passed";
+// Genuinely personal: states today's actual planetary positions, then
+// compares them against this specific chart via the tightest real
+// transit-to-natal aspects (same math as the Go Deeper readings) — an
+// actual "today vs. your chart" comparison, not one isolated fact. Two
+// people with the same Moon sign today will NOT see the same text unless
+// their natal charts happen to produce the same aspects — vanishingly
+// unlikely. Written in plain language on purpose — no "orb," "transiting,"
+// "natal," or "applying/separating" jargon in the output, even though
+// that's what's being computed under the hood.
+function personalVibeFromAspects(natalLongitudes, placements, now) {
+  const sunSign = placements.Sun.sign;
+  const moonSign = placements.Moon.sign;
+  const positionLine = `Sun's in ${sunSign}, Moon's in ${moonSign} today.`;
 
-  return `${t.transitBody} ${verb} ${meaning} right now — ${trendPhrase}.`;
+  const aspects = currentTransitAspects(natalLongitudes, now, 3);
+  if (!aspects.length) {
+    return `${positionLine} Nothing from today's sky is lining up tightly with your chart right now — a quieter day, astrologically.`;
+  }
+
+  // Up to 2 tightest real aspects, so the "vibe" reflects more than one
+  // isolated data point — a real comparison, not a single fact.
+  const top = aspects.slice(0, 2);
+  const aspectPhrases = top.map((t) => {
+    const meaning = PLANET_MEANING[t.natalBody] || t.natalBody;
+    const verb = ASPECT_PLAIN[t.aspect] || "is affecting";
+    const isBuilding = t.trend.startsWith("applying");
+    const trendPhrase = isBuilding ? "still building over the next few days" : "already past its peak";
+    return `${t.transitBody} ${verb} your ${meaning} (${trendPhrase})`;
+  });
+
+  return `${positionLine} ${aspectPhrases.join(", and ")}.`;
 }
 
 function genericVibeFallback(placements, natal, date) {
@@ -116,11 +128,8 @@ export default async function handler(req, res) {
     let personalized = false;
     const natalLongitudes = parseNatalLongitudes(natal_chart_notes || "");
     if (Object.keys(natalLongitudes).length > 0) {
-      const personal = personalVibeFromAspects(natalLongitudes, now);
-      if (personal) {
-        vibe = personal;
-        personalized = true;
-      }
+      vibe = personalVibeFromAspects(natalLongitudes, placements, now);
+      personalized = true;
     }
     if (!vibe) {
       vibe = genericVibeFallback(placements, natal, now);

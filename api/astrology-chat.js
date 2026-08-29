@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { currentPlacements, parseNatalLongitudes, currentTransitAspects } from "./_ephemeris.js";
+import { currentPlacements, parseNatalLongitudes, parseHousePlacements, parseNatalAspects, currentTransitAspects } from "./_ephemeris.js";
 
 const AREA_KEY_BODIES = {
   career: ["Sun", "Saturn", "Mars", "Mercury", "Jupiter"],
@@ -29,7 +29,20 @@ function buildGroundingBlock(area, profile) {
   const chosen = (relevant.length ? relevant : allAspects).slice(0, 8);
 
   if (!chosen.length) return "No major real aspects active right now for this chart.";
-  return `Real computed current aspects:\n${chosen.map((a) => `Transiting ${a.transitBody} ${a.aspect} natal ${a.natalBody} — ${a.trend}`).join("\n")}`;
+
+  const houses = parseHousePlacements(profile?.natal_chart_notes || "");
+  const houseLines = Object.entries(houses)
+    .map(([body, house]) => `${body} in house ${house}`)
+    .join(", ");
+  const houseBlock = houseLines ? `\n\nThis chart's actual house placements: ${houseLines}` : "";
+
+  const natalAspects = parseNatalAspects(profile?.natal_chart_notes || "");
+  const relevantNatal = keyBodies ? natalAspects.filter((a) => keyBodies.includes(a.bodyA) || keyBodies.includes(a.bodyB)) : natalAspects;
+  const natalBlock = relevantNatal.length
+    ? `\n\nThis chart's own permanent natal aspects (core wiring, not today's transits): ${relevantNatal.map((a) => `${a.bodyA} ${a.aspect} ${a.bodyB}`).join(", ")}`
+    : "";
+
+  return `Real computed current aspects:\n${chosen.map((a) => `Transiting ${a.transitBody} ${a.aspect} natal ${a.natalBody} — ${a.trend}`).join("\n")}${houseBlock}${natalBlock}`;
 }
 
 export default async function handler(req, res) {
@@ -51,7 +64,7 @@ export default async function handler(req, res) {
 
     const systemPrompt = `You are continuing a conversation about this person's astrology chart${area ? ` (focused on ${area})` : ""}. You already gave them a reading; now they're asking follow-up questions.
 
-Stay grounded ONLY in the real computed aspect data given below — never invent a new aspect, placement, or degree. If they ask about something the given data doesn't cover, say so honestly rather than making something up to seem more helpful.
+Stay grounded ONLY in the real computed aspect data given below — never invent a new aspect, placement, or degree. If they ask about something the given data doesn't cover, say so honestly rather than making something up to seem more helpful. If real data is given (house placements, permanent natal aspects), actually use it rather than falling back on generic astrology — this chart's specific details matter.
 
 Voice: warm friend, plain everyday language, ADHD-friendly — short sentences, one idea at a time, no astrology jargon left unexplained ("orb," "transiting," "natal," "applying," "separating" always need a plain-English translation in the same breath if used at all). This is a real back-and-forth conversation, not another full reading — keep replies SHORT, typically 2-4 sentences, focused on exactly what they asked. If something actionable fits, give one concrete plain suggestion, not a list.
 

@@ -1,5 +1,77 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Nothing from your chart is dropped anymore — full audit and fix
+You were right that a lot was being silently left out. Audited everything
+your chart notes actually contain versus what was being parsed:
+
+- **Your 27 natal aspects (Sun conjunct Moon, Venus trine Uranus, etc.) —
+  100% unused before this.** New `parseNatalAspects()` extracts the whole
+  list. Verified: all 27 of 27 parse correctly from your exact chart text.
+  These describe permanent personality wiring, distinct from daily transit
+  aspects — now fed into every reading (daily areas, Full Chart, follow-up
+  chat), with the prompt explicitly told which is which so it doesn't
+  conflate "core wiring" with "today's weather."
+- **Lilith, North/South Node, Part of Fortune — previously not parsed at
+  all** since they're not part of the 10-body list used for transit
+  computation (no real orbital formula exists for those points here).
+  Added a separate `EXTRA_NATAL_POINTS` list used ONLY for parsing your
+  chart text (never for computing where anything is "today" — that
+  distinction matters, since faking transit positions for points we can't
+  actually compute would be worse than leaving them out). Verified: all 14
+  points (10 planets + 4 extras) parse correctly, all 12 house placements
+  parse correctly.
+- Every prompt updated with an explicit "use everything given, don't
+  substitute a generic assumption when real data exists" rule.
+- Verified all three endpoints (`astrology.js`, `full-chart.js`,
+  `astrology-chat.js`) execute cleanly end-to-end with the fully-loaded
+  chart data — no crashes anywhere in the pipeline.
+
+## Real gap found and fixed: house placements were parsed nowhere
+Your chart notes have always contained house placements (Sun in XI, Venus
+in XII, etc.) and it turned out nothing was ever extracting them — every
+reading referenced houses only generically ("the 10th house means career")
+without knowing this chart's Sun isn't even in the 10th house. Fixed:
+
+- New `parseHousePlacements()` in `_ephemeris.js` — supports both "Sun in
+  XI" and "Sun: Leo 13°54' (XI)" formats. Verified against your real data
+  in both formats: correctly extracts Sun/Moon/Mercury→XI, Venus→XII,
+  Mars→IX, Jupiter/Pluto→II, Saturn/Uranus/Neptune→VI/IV/IV.
+- Wired into all three places natal data gets used: the daily area
+  readings (`astrology.js`), the Full Chart Reading (`full-chart.js`), and
+  follow-up chat grounding (`astrology-chat.js`) — each now gets real house
+  data and is explicitly instructed to use it instead of defaulting to
+  textbook house-sign assumptions.
+- Verified the full pipeline end-to-end with real house-annotated chart
+  data — no crashes, reaches the API cleanly.
+
+## "Today's vibe" is now a real comparison, not one isolated fact
+Previous version picked only the single tightest aspect and said one thing
+about it. Rewrote `personalVibeFromAspects()` to actually do what "today's
+positions compared to my chart" means: states today's real Sun/Moon
+positions first, then the top 2 tightest real aspects and how each is
+specifically interacting with the chart — a genuine comparison, not a
+single cherry-picked data point. Verified against your real chart data:
+
+"Sun's in Virgo, Moon's in Pisces today. Venus is creating friction with
+your dreams, intuition, and confusion (already past its peak), and Saturn
+is working smoothly with your core confidence and sense of self (already
+past its peak)."
+
+Also has a real "quiet day" fallback line for when nothing's within orb
+that day, rather than forcing a match.
+
+## "Today's vibe" grammar bug fixed
+`PLANET_MEANING` in `transits.js` had inconsistent phrasing — some entries
+included "your" (Sun, Moon, Mercury, Mars), others didn't (Venus, Jupiter,
+Saturn, Uranus, Neptune, Pluto). Since which natal planet gets referenced
+is random day-to-day, about half the possible sentences read correctly
+("Saturn is creating friction with your core confidence") and the other
+half read wrong ("Venus is creating friction with dreams, intuition, and
+confusion" — missing the "your"). Normalized every entry and now always
+supply "your" in the template, so it's grammatically consistent regardless
+of which planet comes up. Verified all 50 planet/aspect combinations read
+correctly, plus the exact sentence from the bug report specifically.
+
 ## Follow-up chat now persists (where the reading itself does too)
 New `chat_messages` table, scoped by a context key so history stays
 attached to the right reading:

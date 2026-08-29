@@ -1,5 +1,5 @@
 import Groq from "groq-sdk";
-import { currentPlacements, parseNatalLongitudes, currentTransitAspects, computeLifeCycles } from "./_ephemeris.js";
+import { currentPlacements, parseNatalLongitudes, parseHousePlacements, parseNatalAspects, currentTransitAspects, computeLifeCycles } from "./_ephemeris.js";
 
 const SYSTEM_PROMPT = `You are a professional-grade natal chart reader talking directly to this person — warm, direct, plain language, ADHD-friendly (one idea per sentence, no jargon left unexplained). You'll be given real computed data: their natal placements, real life-cycle return dates (actual astronomical events calculated from their exact birth data), current active aspects, and developing aspects over the coming months.
 
@@ -7,7 +7,7 @@ CRITICAL HONESTY RULE: You are describing real astronomical cycles and their tra
 
 Sections to produce:
 
-1. identity_summary: Synthesize their Sun/Moon/Rising/Mercury/Venus/Mars into ONE cohesive picture of who they are — not six separate paragraphs bolted together, an actual synthesis showing how these placements interact. Plain language. ~120-150 words.
+1. identity_summary: Synthesize their Sun/Moon/Rising/Mercury/Venus/Mars into ONE cohesive picture of who they are — not six separate paragraphs bolted together, an actual synthesis showing how these placements interact. If house placements are given alongside a planet, use them — a real chart's Sun in the 11th house tells a genuinely different story than the same Sun in the 1st or 10th, don't default to generic sign-only description when house data is available. You'll also be given this chart's own permanent natal aspects (aspects between their own planets, e.g. "Sun conjunct Moon") — use these too, they're real core-personality data, not optional extras. Don't leave out real given data in favor of a generic assumption. Plain language. ~120-150 words.
 
 2. life_cycles_narrative: You're given real computed dates for their Saturn and Jupiter returns (past and upcoming). For EACH date given, write 1-2 plain-language sentences on what that real astronomical marker traditionally represents (Saturn return = a real ~29.5-year cycle marking a shift into greater responsibility/maturity; Jupiter return = a real ~12-year cycle marking a growth/opportunity chapter) and what it might mean given THIS chart specifically. Use the exact dates given — never invent or adjust them. If a cycle is "past," frame it as a chapter that already happened (something they can look back on); if "upcoming," frame it as a chapter forming ahead. ~150-200 words total across all cycles given.
 
@@ -66,12 +66,14 @@ export default async function handler(req, res) {
     const now = new Date();
 
     // Real placements, plain text for the model to synthesize.
+    const houses = parseHousePlacements(profile?.natal_chart_notes || "");
     const placementLines = Object.entries(natalLongitudes)
       .map(([body, lon]) => {
         const norm = ((lon % 360) + 360) % 360;
         const signIdx = Math.floor(norm / 30);
         const signs = ["Aries", "Taurus", "Gemini", "Cancer", "Leo", "Virgo", "Libra", "Scorpio", "Sagittarius", "Capricorn", "Aquarius", "Pisces"];
-        return `${body}: ${signs[signIdx]} ${(norm - signIdx * 30).toFixed(1)}°`;
+        const houseNote = houses[body] ? ` (house ${houses[body]})` : "";
+        return `${body}: ${signs[signIdx]} ${(norm - signIdx * 30).toFixed(1)}°${houseNote}`;
       })
       .join(", ");
 
@@ -96,7 +98,17 @@ export default async function handler(req, res) {
       .filter((a) => a.trend.startsWith("applying"))
       .slice(0, 6);
 
+    // The full permanent natal aspect list — real data the user provided
+    // that was previously parsed nowhere in the app.
+    const natalAspects = parseNatalAspects(profile?.natal_chart_notes || "");
+    const natalAspectLines = natalAspects.length
+      ? natalAspects.map((a) => `${a.bodyA} ${a.aspect} ${a.bodyB}`).join(", ")
+      : "None found in the chart data given.";
+
     const dataBlock = `Natal placements: ${placementLines}
+
+This chart's own permanent natal aspects (core wiring, use these for the identity summary especially):
+${natalAspectLines}
 
 Real computed life-cycle return dates:
 ${lifeCycles.length ? lifeCycles.map((c) => `${c.label}: ${c.date} (${c.status})`).join("\n") : "None computable — natal Saturn/Jupiter positions not found in the chart data."}
