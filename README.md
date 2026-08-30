@@ -1,5 +1,42 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Split: Blueprint stays stable, Action Center goes back to live
+Per request — the daily-snapshot fix from last round was correct for
+Blueprint's AstroSnapshot, but Action Center's vibe banner was meant to
+stay live/real-time. Reverted just that one call site:
+- **`AstroSnapshot.jsx` (Blueprint tab)**: still sends `for_date`, still
+  pinned to noon UTC of the day, still stable across repeated opens —
+  unchanged from last round.
+- **`ActionCenterTab.jsx` (Action Center)**: no longer sends `for_date`,
+  so the backend falls through to its live-clock path — recomputes fresh
+  from the actual current moment every time, as originally intended for
+  this specific banner.
+
+Verified both paths directly: two Blueprint-style calls for the same date
+produce identical output (stable, correct), while an Action-Center-style
+call with no date correctly falls through to the live computation path.
+
+## "Today's vibe" was flickering — fixed the actual architecture bug
+Real bug, not a display issue: the endpoint computed planetary positions
+from the literal live moment (`new Date()`) on every single request, with
+no caching. Since planets move continuously, checking at 9:54 and again at
+10:15 on the same day could genuinely produce different "tightest aspect"
+results — sometimes different enough to change the whole sentence, not
+just wording. "Today's vibe" should be a stable daily snapshot (like a
+weather forecast computed once for the day), not something recalculated
+fresh every time you open the app.
+
+Fixed by pinning the computation to noon UTC of the client's actual local
+calendar date instead of the live moment — the frontend now sends its
+local date (`localDateString()`) with every request, both in
+`AstroSnapshot.jsx` and `ActionCenterTab.jsx`'s vibe banner.
+
+**Verified directly, not just reasoned about**: called the endpoint 5
+times for the same date with simulated real-world delays between calls —
+all 5 produced byte-identical output. Then called it for two different
+dates and confirmed the content correctly differs across days. Both
+behaviors now match what "today's vibe" should actually mean.
+
 ## Screenshot upload removed — copy/paste only now
 Removed entirely: `api/parse-natal-screenshots.js` (deleted), the upload
 button/file input/related state in `SettingsModal.jsx`, and the leftover

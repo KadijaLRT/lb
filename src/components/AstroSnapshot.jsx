@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { localDateString } from "../lib/date.js";
 
 const ELEMENT_COLOR = {
   fire: "bg-fire",
@@ -16,7 +17,7 @@ export default function AstroSnapshot({ sun, moon, rising, natalChartNotes }) {
     fetch("/api/transits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ sun, moon, rising, natal_chart_notes: natalChartNotes }),
+      body: JSON.stringify({ sun, moon, rising, natal_chart_notes: natalChartNotes, for_date: localDateString() }),
     })
       .then(async (r) => {
         const raw = await r.text();

@@ -23,6 +23,11 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
   const [goalsProgress, setGoalsProgress] = useState("");
 
   useEffect(() => {
+    // Intentionally NOT sending for_date here — this is the Action Center's
+    // live vibe banner, meant to update in real time as you use the app.
+    // The Blueprint tab's AstroSnapshot is the stable "today" snapshot
+    // (pinned to noon UTC of the day so it doesn't flicker); this one is
+    // deliberately the opposite by request — live, not pinned.
     fetch("/api/transits", {
       method: "POST",
       headers: { "Content-Type": "application/json" },

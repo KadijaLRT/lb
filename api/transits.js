@@ -123,10 +123,19 @@ export default async function handler(req, res) {
       return res.status(405).json({ error: "Method not allowed" });
     }
 
-    const { sun, moon, rising, natal_chart_notes } = req.body || {};
+    const { sun, moon, rising, natal_chart_notes, for_date } = req.body || {};
     const natal = { sun: sun || undefined, moon: moon || undefined, rising: rising || undefined };
 
-    const now = new Date();
+    // Pinning to a fixed reference time (noon UTC) for the given calendar
+    // day, rather than the literal live moment — planets move continuously,
+    // so computing "the tightest aspects right now" fresh on every request
+    // meant the vibe could genuinely change (sometimes substantially, not
+    // just wording) between opening the app at 9:54 and again at 10:15 on
+    // the SAME day. "Today's vibe" should be a stable daily snapshot, like
+    // a weather forecast computed once for the day, not recalculated every
+    // time you check it. Falls back to the live moment only if the client
+    // didn't send a date (shouldn't normally happen).
+    const now = for_date ? new Date(`${for_date}T12:00:00Z`) : new Date();
     const placements = currentPlacements(now);
     const element = ELEMENT_BY_SIGN[placements.Sun.sign];
 
