@@ -23,24 +23,40 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
   const [goalsProgress, setGoalsProgress] = useState("");
 
   useEffect(() => {
-    // Intentionally NOT sending for_date here — this is the Action Center's
-    // live vibe banner, meant to update in real time as you use the app.
-    // The Blueprint tab's AstroSnapshot is the stable "today" snapshot
-    // (pinned to noon UTC of the day so it doesn't flicker); this one is
-    // deliberately the opposite by request — live, not pinned.
-    fetch("/api/transits", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        sun: profile?.sun_sign,
-        moon: profile?.moon_sign,
-        rising: profile?.rising_sign,
-        natal_chart_notes: profile?.natal_chart_notes,
-      }),
-    })
-      .then((r) => r.json())
-      .then((d) => setVibe(d.vibe || ""))
-      .catch(() => setVibe(""));
+    // Genuinely live: refetches on a timer while this tab is open, not just
+    // once on mount — a one-time fetch would look identical to Blueprint's
+    // stable snapshot in normal use, since neither would visibly change
+    // without a full reload. This one actually updates every 5 minutes so
+    // it behaves like a live reading, not just a differently-computed
+    // static one.
+    let cancelled = false;
+
+    function fetchVibe() {
+      fetch("/api/transits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sun: profile?.sun_sign,
+          moon: profile?.moon_sign,
+          rising: profile?.rising_sign,
+          natal_chart_notes: profile?.natal_chart_notes,
+        }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (!cancelled) setVibe(d.vibe || "");
+        })
+        .catch(() => {
+          if (!cancelled) setVibe("");
+        });
+    }
+
+    fetchVibe();
+    const interval = setInterval(fetchVibe, 5 * 60 * 1000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [profile?.sun_sign, profile?.moon_sign, profile?.rising_sign, profile?.natal_chart_notes]);
 
   useEffect(() => {

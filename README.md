@@ -1,5 +1,18 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Action Center vibe actually behaves live now, not just computed differently once
+Real gap: both banners only ever fetched once per mount — the previous fix
+made Action Center's *computation* live (no date pinning server-side), but
+in normal use that's invisible, since neither banner would visibly change
+without a full reload. "Live" needs to mean it actually updates while
+you're using the app.
+
+Fixed: `ActionCenterTab.jsx` now refetches every 5 minutes on a timer
+while the tab stays open, on top of already refetching fresh every time
+you switch back to the Action tab (it unmounts/remounts on tab switches,
+so that was already happening). Cleans up the interval properly on
+unmount so it doesn't keep running in the background across other tabs.
+
 ## Split: Blueprint stays stable, Action Center goes back to live
 Per request — the daily-snapshot fix from last round was correct for
 Blueprint's AstroSnapshot, but Action Center's vibe banner was meant to
