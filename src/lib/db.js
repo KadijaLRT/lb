@@ -127,31 +127,6 @@ export async function addChatMessage(userId, contextKey, role, content) {
   return data;
 }
 
-export async function getFullChartReading(userId) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("full_chart_readings")
-    .select("*")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (error) throw error;
-  return data;
-}
-
-export async function saveFullChartReading(userId, content) {
-  if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("full_chart_readings")
-    .upsert(
-      { user_id: userId, content, generated_at: new Date().toISOString() },
-      { onConflict: "user_id" }
-    )
-    .select()
-    .single();
-  if (error) throw error;
-  return data;
-}
-
 export async function listGoals(userId) {
   if (!supabase) return [];
   const { data, error } = await supabase

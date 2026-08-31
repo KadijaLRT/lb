@@ -1,13 +1,17 @@
 // Today's real transiting placements via astronomy-engine — no external API
 // or key needed.
 //
-// Personalization: when full natal chart data is available, "today's vibe"
-// is now built from a real computed transit-to-natal aspect (same math as
-// the Go Deeper readings) — genuinely about this person's chart, not a
-// generic per-element phrase that anyone with the same Moon sign that day
-// would also see. The generic Moon-element phrasing only applies as a
-// fallback when there's no natal chart data to compute real aspects from.
+// Full rebuild: the personalized vibe used to be built by string-templating
+// planet names into fixed sentence shapes ("X is doing Y with your Z").
+// That's why it kept feeling mechanical and repetitive no matter how many
+// times the templates were patched — concatenated strings can't vary tone
+// or avoid sounding like a mad-lib. Now it's written by the same
+// natural-language generation the rest of the app already uses (Go Deeper,
+// the coach), grounded in ONE real computed fact (the single tightest
+// transit-to-natal aspect) instead of stacking multiple planet mentions
+// into one sentence.
 
+import Groq from "groq-sdk";
 import { currentPlacements, ELEMENT_BY_SIGN, parseNatalLongitudes, currentTransitAspects } from "./_ephemeris.js";
 
 const MOOD_BY_ELEMENT = {
@@ -33,67 +37,16 @@ const MOOD_BY_ELEMENT = {
   ],
 };
 
-// Deterministic per-day pick — only used in the no-natal-data fallback.
 function pickVariant(list, date) {
   const dayIndex = Math.floor(date.getTime() / 86400000);
   return list[dayIndex % list.length];
 }
 
-const PLANET_MEANING = {
-  Sun: "core confidence and sense of self",
-  Moon: "emotions and gut instincts",
-  Mercury: "way of thinking and communicating",
-  Venus: "sense of love, money, and values",
-  Mars: "drive, motivation, and temper",
-  Jupiter: "sense of growth, luck, and opportunity",
-  Saturn: "discipline, responsibility, and limits",
-  Uranus: "capacity for surprises and sudden change",
-  Neptune: "dreams, intuition, and confusion",
-  Pluto: "capacity for intensity and deep change",
-};
-
-const ASPECT_PLAIN = {
-  conjunction: "is merging with",
-  trine: "is working smoothly with",
-  sextile: "is giving a gentle boost to",
-  square: "is creating friction with",
-  opposition: "is pulling against",
-};
-
-// Genuinely personal: states today's actual planetary positions, then
-// compares them against this specific chart via the tightest real
-// transit-to-natal aspects (same math as the Go Deeper readings) — an
-// actual "today vs. your chart" comparison, not one isolated fact. Two
-// people with the same Moon sign today will NOT see the same text unless
-// their natal charts happen to produce the same aspects — vanishingly
-// unlikely. Written in plain language on purpose — no "orb," "transiting,"
-// "natal," or "applying/separating" jargon in the output, even though
-// that's what's being computed under the hood.
-function personalVibeFromAspects(natalLongitudes, placements, now) {
-  const sunSign = placements.Sun.sign;
-  const moonSign = placements.Moon.sign;
-  const positionLine = `Sun's in ${sunSign}, Moon's in ${moonSign} today.`;
-
-  const aspects = currentTransitAspects(natalLongitudes, now, 3);
-  if (!aspects.length) {
-    return `${positionLine} Nothing from today's sky is lining up tightly with your chart right now — a quieter day, astrologically.`;
-  }
-
-  // Up to 2 tightest real aspects, so the "vibe" reflects more than one
-  // isolated data point — a real comparison, not a single fact.
-  const top = aspects.slice(0, 2);
-  const aspectPhrases = top.map((t) => {
-    const meaning = PLANET_MEANING[t.natalBody] || t.natalBody;
-    const verb = ASPECT_PLAIN[t.aspect] || "is affecting";
-    const isBuilding = t.trend.startsWith("applying");
-    const trendPhrase = isBuilding ? "still building over the next few days" : "already past its peak";
-    return `${t.transitBody} ${verb} your ${meaning} (${trendPhrase})`;
-  });
-
-  return `${positionLine} ${aspectPhrases.join(", and ")}.`;
-}
-
-function genericVibeFallback(placements, natal, date, hasNotesButUnparseable) {
+// No-chart-data fallback stays deterministic JS — there's no real
+// personalization happening in this path anyway, so an LLM call would just
+// add latency/cost for no benefit. The complaint was about the templated
+// PERSONALIZED text; this generic path was never the issue.
+function genericVibeFallback(placements, natal, date, reason) {
   const sunSign = placements.Sun.sign;
   const moonSign = placements.Moon.sign;
   const moonElement = ELEMENT_BY_SIGN[moonSign];
@@ -107,13 +60,68 @@ function genericVibeFallback(placements, natal, date, hasNotesButUnparseable) {
 
   const moods = MOOD_BY_ELEMENT[moonElement] || [];
   const mood = pickVariant(moods, date) || "";
-  // Distinguish the two failure modes so this is actually debuggable next
-  // time, instead of one message covering both "nothing saved" and
-  // "something's saved but couldn't be read."
-  const reason = hasNotesButUnparseable
-    ? "Your chart notes are saved but couldn't be read — check the format in Settings (the live preview there shows exactly what's detected)."
-    : "Add your full natal chart in Settings for a reading built from your actual placements instead of this general one.";
-  return `Moon in ${moonSign}: ${mood} (Sun's in ${sunSign} for the season. ${reason})`;
+  // Three genuinely different situations that were previously conflated
+  // into one message — a Groq outage was being misreported as a chart
+  // formatting problem, which sends you chasing the wrong fix.
+  const reasonText = {
+    no_notes: "Add your full natal chart in Settings for a reading built from your actual placements instead of this general one.",
+    unparseable: "Your chart notes are saved but couldn't be read — check the format in Settings (the live preview there shows exactly what's detected).",
+    generation_failed: "Your chart read fine, but the personalized reading couldn't be generated right now — try again shortly.",
+  }[reason];
+  return `Moon in ${moonSign}: ${mood} (Sun's in ${sunSign} for the season. ${reasonText})`;
+}
+
+const VIBE_SYSTEM_PROMPT = `You write a single short "today's astrological vibe" line for someone, grounded in ONE real computed fact about their chart. Not a full reading — a quick, warm, natural-sounding line, like a friend texting "hey, heads up" energy.
+
+Hard rules:
+- ONE to two short sentences MAX. Under 35 words total.
+- Ground it in the ONE real fact given — don't invent anything, don't add other planets or aspects not mentioned.
+- Do NOT mechanically state raw positions as a checklist ("Sun is in X, Moon is in Y") — that's exactly the repetitive, mad-lib-sounding pattern to avoid. Weave the real fact into one natural, flowing thought instead.
+- Plain everyday language, no astrology jargon left unexplained — no bare "orb," "transiting," "natal," "applying," "separating."
+- Vary your sentence structure and word choice naturally — don't default to the same "X is [verb]-ing your Y" shape every time, write it the way a person actually would.
+- Warm, direct, a little personality — not clinical, not fortune-teller vague.
+- Include the practical "so what" — what this is actually good or bad for today, in a few words, not a separate paragraph.
+
+Output ONLY the line itself. No quotes, no preamble, no explanation.`;
+
+async function generatePersonalVibe(natalLongitudes, placements, now) {
+  const aspects = currentTransitAspects(natalLongitudes, now, 3);
+  if (!aspects.length) {
+    return "Nothing from today's sky is lining up tightly with your chart right now — a quieter day, astrologically.";
+  }
+
+  const tightest = aspects[0];
+  const isBuilding = tightest.trend.startsWith("applying");
+  const factLine = `Today, transiting ${tightest.transitBody} is making a real ${tightest.aspect} to this person's natal ${tightest.natalBody} (this is ${
+    isBuilding ? "still building/getting stronger over the next few days" : "already past its peak, easing off"
+  }).`;
+
+  if (!process.env.GROQ_API_KEY) {
+    // No key configured — fail up to the caller's generic fallback rather
+    // than crash; this keeps the endpoint usable even mid-setup.
+    return null;
+  }
+
+  const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const completion = await groq.chat.completions.create({
+    model: "openai/gpt-oss-120b",
+    reasoning_effort: "low",
+    messages: [
+      { role: "system", content: VIBE_SYSTEM_PROMPT },
+      { role: "user", content: factLine },
+    ],
+    temperature: 0.9,
+    max_tokens: 150,
+  });
+
+  let line = completion.choices?.[0]?.message?.content?.trim() || "";
+  if (!line) return null;
+
+  if (completion.choices?.[0]?.finish_reason === "length") {
+    const lastSentenceEnd = Math.max(line.lastIndexOf("."), line.lastIndexOf("!"), line.lastIndexOf("?"));
+    if (lastSentenceEnd > -1) line = line.slice(0, lastSentenceEnd + 1);
+  }
+  return line;
 }
 
 export default async function handler(req, res) {
@@ -126,29 +134,35 @@ export default async function handler(req, res) {
     const { sun, moon, rising, natal_chart_notes, for_date } = req.body || {};
     const natal = { sun: sun || undefined, moon: moon || undefined, rising: rising || undefined };
 
-    // Pinning to a fixed reference time (noon UTC) for the given calendar
-    // day, rather than the literal live moment — planets move continuously,
-    // so computing "the tightest aspects right now" fresh on every request
-    // meant the vibe could genuinely change (sometimes substantially, not
-    // just wording) between opening the app at 9:54 and again at 10:15 on
-    // the SAME day. "Today's vibe" should be a stable daily snapshot, like
-    // a weather forecast computed once for the day, not recalculated every
-    // time you check it. Falls back to the live moment only if the client
-    // didn't send a date (shouldn't normally happen).
+    // Pinned to noon UTC of the given date when for_date is sent (stable
+    // daily snapshot — used by Blueprint's AstroSnapshot); falls through to
+    // the live moment when omitted (used by Action Center's live banner).
     const now = for_date ? new Date(`${for_date}T12:00:00Z`) : new Date();
     const placements = currentPlacements(now);
     const element = ELEMENT_BY_SIGN[placements.Sun.sign];
 
-    let vibe;
+    let vibe = null;
     let personalized = false;
+    let failureReason = "no_notes";
     const natalLongitudes = parseNatalLongitudes(natal_chart_notes || "");
+    const hasNotes = !!(natal_chart_notes && natal_chart_notes.trim());
+
     if (Object.keys(natalLongitudes).length > 0) {
-      vibe = personalVibeFromAspects(natalLongitudes, placements, now);
-      personalized = true;
+      try {
+        vibe = await generatePersonalVibe(natalLongitudes, placements, now);
+        if (vibe) personalized = true;
+        else failureReason = "generation_failed";
+      } catch (err) {
+        console.error("Vibe generation failed, falling back:", err?.message || err);
+        vibe = null;
+        failureReason = "generation_failed";
+      }
+    } else if (hasNotes) {
+      failureReason = "unparseable";
     }
+
     if (!vibe) {
-      const hasNotesButUnparseable = !!(natal_chart_notes && natal_chart_notes.trim());
-      vibe = genericVibeFallback(placements, natal, now, hasNotesButUnparseable);
+      vibe = genericVibeFallback(placements, natal, now, failureReason);
     }
 
     return res.status(200).json({

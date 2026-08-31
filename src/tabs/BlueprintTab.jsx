@@ -4,7 +4,6 @@ import AstroSnapshot from "../components/AstroSnapshot.jsx";
 import SettingsModal from "../components/SettingsModal.jsx";
 import LifeAreaExplorer from "../components/LifeAreaExplorer.jsx";
 import GoalsTracker from "../components/GoalsTracker.jsx";
-import FullChartReading from "../components/FullChartReading.jsx";
 
 export default function BlueprintTab({ profile, onSave }) {
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -65,8 +64,6 @@ export default function BlueprintTab({ profile, onSave }) {
       </div>
 
       <GoalsTracker profile={profile} />
-
-      <FullChartReading profile={profile} />
 
       <LifeAreaExplorer profile={profile} />
 

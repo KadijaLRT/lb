@@ -3,7 +3,7 @@ import { Send, Loader2, MessagesSquare } from "lucide-react";
 import { listChatMessages, addChatMessage } from "../lib/db.js";
 
 // When contextKey is given, the conversation is loaded from and saved to
-// Supabase (scoped to that key — e.g. "career:2026-08-28" or "full_chart").
+// Supabase (scoped to that key — e.g. "career:2026-08-28").
 // Without one (scenario advice), it stays purely in-memory, matching the
 // fact that scenario readings themselves aren't saved either.
 export default function ChatFollowUp({ area, profile, priorReading, contextKey }) {

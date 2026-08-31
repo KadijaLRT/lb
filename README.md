@@ -1,5 +1,32 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## "Today's vibe" fully rebuilt, Full Chart Reading removed
+**Vibe rebuild**: the personalized text was always built by string-templating
+planet names into fixed sentence shapes ("X is [verb]-ing your Y") — that's
+structurally why it kept sounding mechanical and repetitive no matter how
+many times the templates got patched. Deleted that approach entirely.
+Now `transits.js` computes ONE real fact (the single tightest
+transit-to-natal aspect, not two stacked together) and hands it to the same
+natural-language generation the rest of the app already uses (Groq,
+`reasoning_effort: low`, same plain-language/no-jargon voice as the coach
+and Go Deeper readings) — genuinely varied phrasing instead of a filled-in
+template, and explicitly told not to mechanically list raw positions.
+
+**Caught a real bug while testing this**: when the AI generation step
+itself fails (network hiccup, API issue), the fallback message was
+incorrectly blaming your chart format ("couldn't be read") even when
+parsing had succeeded fine — two different failure modes were conflated
+into one message. Fixed to distinguish three states properly: no chart
+data, chart data that couldn't be parsed, and chart data that parsed fine
+but the generation step failed. Verified all three produce the correct,
+distinct message.
+
+**Full Chart Reading removed entirely** — `api/full-chart.js`,
+`FullChartReading.jsx`, and its DB helpers are deleted. Blueprint layout is
+now Astro Snapshot → Core Goals → Goal Progress → Go Deeper. The
+`full_chart_readings` table stays in the database (harmless, no destructive
+migration) but nothing references it anymore.
+
 ## Action Center vibe actually behaves live now, not just computed differently once
 Real gap: both banners only ever fetched once per mount — the previous fix
 made Action Center's *computation* live (no date pinning server-side), but
