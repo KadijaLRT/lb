@@ -1,5 +1,57 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Advice section retuned to actually sound like advice, not a shorter report
+Fair distinction: the "Get advice" scenario feature is fundamentally
+different from the daily readings — you're telling it something and
+asking what to do, so it should feel like a friend texting back, not an
+analysis with the word count trimmed. The previous fix cut the repetitive
+aspect-listing problem but left instructions like "address their situation
+head-on in the first sentence," which still reads like a memo opening, not
+a reaction.
+
+Rewrote `buildScenarioPrompt` specifically (daily readings in
+`buildStandardPrompt` are untouched — that one's meant to read a bit more
+like "here's what's happening," this one's a two-way exchange):
+- Told explicitly to react like a person first — acknowledge what was
+  shared before jumping to the chart, the way an actual friend would.
+- Astrology now framed as something that "occurred to you mid-conversation"
+  rather than delivered analysis — "and honestly, Saturn's doing this right
+  now, so..." instead of "the relevant aspect is..."
+- Timing/trend guidance (still building vs. already past its peak) kept,
+  but rephrased conversationally instead of as a formal breakdown.
+- Framed explicitly as "a text back, not an essay."
+
+## Real fix for the mechanical, repetitive "listed every aspect" problem
+Your screenshot showed the actual bug clearly: 6 separate aspects, each
+getting its own sentence with the same repeated flowery template
+("Venus's gentle link," "Jupiter's bright boost," "Saturn's gentle hand,"
+"Neptune's soft kiss," "Pluto's pull") — and it ran to ~300 words despite a
+"130 word" instruction. Root cause was a **data** problem, not just a
+prompt-wording one: the code was handing the model 6 transit aspects plus
+an *uncapped* list of natal aspects and saying "use these" — no amount of
+"be concise" instruction reliably overrides being handed 8+ facts to work
+through.
+
+Fixed in all three places (`astrology.js`'s daily readings, its scenario
+advice — the exact path in your screenshot, and `astrology-chat.js`'s
+follow-up chat):
+- **Aspect counts cut hard**: transit aspects from 6 (8 in chat) down to 3;
+  natal aspects from uncapped down to 2, now actually sorted by real orb
+  (tightest/most exact first) instead of arbitrary order.
+- **Explicit ban on the mechanical list pattern**: "DO NOT work through
+  every aspect given, one sentence each" — told to pick the single most
+  relevant one and build around it, using a second only if it changes
+  something.
+- **Explicit ban on the flowery repeated-metaphor problem**: named the
+  actual pattern from your screenshot ("gentle hand," "soft kiss," "bright
+  boost") as exactly what not to do.
+- **Word limit tightened**: 200→130 words for both daily and scenario
+  readings, since a shorter data set makes a shorter response actually
+  achievable now instead of fighting against 8 facts crammed in.
+
+Verified the actual data assembly directly: a realistic love-area scenario
+now sends 3 aspects to the model, down from 6+uncapped before.
+
 ## "Today's vibe" fully rebuilt, Full Chart Reading removed
 **Vibe rebuild**: the personalized text was always built by string-templating
 planet names into fixed sentence shapes ("X is [verb]-ing your Y") — that's

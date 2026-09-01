@@ -26,7 +26,10 @@ function buildGroundingBlock(area, profile) {
   const allAspects = currentTransitAspects(natalLongitudes, now, 5);
   const keyBodies = area && AREA_KEY_BODIES[area] ? AREA_KEY_BODIES[area] : null;
   const relevant = keyBodies ? allAspects.filter((a) => keyBodies.includes(a.natalBody)) : allAspects;
-  const chosen = (relevant.length ? relevant : allAspects).slice(0, 8);
+  // Capped at 3, same reasoning as astrology.js — a shorter, focused fact
+  // set produces a genuinely conversational reply instead of the model
+  // mechanically working through every aspect it was handed.
+  const chosen = (relevant.length ? relevant : allAspects).slice(0, 3);
 
   if (!chosen.length) return "No major real aspects active right now for this chart.";
 
@@ -37,7 +40,9 @@ function buildGroundingBlock(area, profile) {
   const houseBlock = houseLines ? `\n\nThis chart's actual house placements: ${houseLines}` : "";
 
   const natalAspects = parseNatalAspects(profile?.natal_chart_notes || "");
-  const relevantNatal = keyBodies ? natalAspects.filter((a) => keyBodies.includes(a.bodyA) || keyBodies.includes(a.bodyB)) : natalAspects;
+  const relevantNatal = (keyBodies ? natalAspects.filter((a) => keyBodies.includes(a.bodyA) || keyBodies.includes(a.bodyB)) : natalAspects)
+    .sort((a, b) => (a.orb ?? 99) - (b.orb ?? 99))
+    .slice(0, 2);
   const natalBlock = relevantNatal.length
     ? `\n\nThis chart's own permanent natal aspects (core wiring, not today's transits): ${relevantNatal.map((a) => `${a.bodyA} ${a.aspect} ${a.bodyB}`).join(", ")}`
     : "";
@@ -66,7 +71,7 @@ export default async function handler(req, res) {
 
 Stay grounded ONLY in the real computed aspect data given below — never invent a new aspect, placement, or degree. If they ask about something the given data doesn't cover, say so honestly rather than making something up to seem more helpful. If real data is given (house placements, permanent natal aspects), actually use it rather than falling back on generic astrology — this chart's specific details matter.
 
-Voice: warm friend, plain everyday language, ADHD-friendly — short sentences, one idea at a time, no astrology jargon left unexplained ("orb," "transiting," "natal," "applying," "separating" always need a plain-English translation in the same breath if used at all). This is a real back-and-forth conversation, not another full reading — keep replies SHORT, typically 2-4 sentences, focused on exactly what they asked. If something actionable fits, give one concrete plain suggestion, not a list.
+Voice: warm friend, plain everyday language, ADHD-friendly — short sentences, one idea at a time, no astrology jargon left unexplained ("orb," "transiting," "natal," "applying," "separating" always need a plain-English translation in the same breath if used at all). This is a real back-and-forth conversation, not another full reading — keep replies SHORT, typically 2-4 sentences, focused on exactly what they asked. Even with several real aspects given below, pick just the ONE most relevant to what they're actually asking — don't work through the whole list. If something actionable fits, give one concrete plain suggestion, not a list.
 
 The reading they already received: "${priorReading || "(not provided)"}"
 
