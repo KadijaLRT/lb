@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Mic, Loader2, Copy, Check, Zap } from "lucide-react";
 import IdeaGenerator from "./IdeaGenerator.jsx";
 
-const TABS = ["TikTok/Reels", "Instagram", "X Thread", "Facebook"];
+const TABS = ["TikTok/Reels", "Instagram", "X Post", "Facebook"];
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -150,16 +150,13 @@ export default function ContentEngine({ profile, onSaved }) {
               </div>
             )}
 
-            {tab === "X Thread" && (
+            {tab === "X Post" && (
               <div className="flex flex-col gap-2">
-                <div className="flex justify-end">
-                  <CopyButton text={(result.x_thread || []).join("\n\n")} />
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-muted">{(result.x_post || "").length} characters</span>
+                  <CopyButton text={result.x_post} />
                 </div>
-                {(result.x_thread || []).map((line, i) => (
-                  <p key={i} className="text-cream/90 text-sm">
-                    {i + 1}/ {line}
-                  </p>
-                ))}
+                <p className="text-cream/90 text-sm whitespace-pre-wrap">{result.x_post}</p>
               </div>
             )}
 

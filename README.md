@@ -1,5 +1,22 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## X content: already fixed in code (stale deploy), but found a real save bug
+The numbered "1/2/3" thread format in your screenshot doesn't exist in the
+current code — `content.js` already specifies `x_post` as a single tweet
+(not numbered, minimum 140 characters), and `ContentEngine.jsx` already
+renders it as one plain paragraph with a character counter under an "X
+Post" tab, not "X Thread." That's a stale-deployment situation — push and
+redeploy the latest zip and it should match.
+
+**Did find a real bug while checking this, though**: `App.jsx`'s save-to-
+queue logic was still reading `result.x_thread` — a field that no longer
+exists now that the backend returns `x_post` instead. That expression
+always evaluated to an empty string, so anything saved to your queue would
+have had a blank X post forever, silently, regardless of what displayed on
+screen before saving. Fixed to store `result.x_post` correctly. Kept the
+same `x_thread` database column name (no schema change needed) — just
+fixed what actually gets written into it.
+
 ## Advice section retuned to actually sound like advice, not a shorter report
 Fair distinction: the "Get advice" scenario feature is fundamentally
 different from the daily readings — you're telling it something and

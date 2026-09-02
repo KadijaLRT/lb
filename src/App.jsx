@@ -42,7 +42,7 @@ export default function App() {
         raw_brain_dump: dump,
         short_form_script: result.tiktok_reels_script,
         instagram_caption: result.instagram_caption,
-        x_thread: (result.x_thread || []).join("\n"),
+        x_thread: result.x_post || "",
         facebook_post: result.facebook_post,
         execution_steps: result.execution_steps || [],
         engagement_tip: result.engagement_tip,

@@ -6,7 +6,7 @@ Hard rules:
 - Strip all filler, setups, throat-clearing, and long intros.
 - tiktok_reels_script: hook must be the very first line and land in under 3 seconds of read time. Hard cap 130 words. This same script also works for IG/FB Reels — don't write a separate video script for Instagram.
 - instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Short, punchy first line (gets cut off after ~125 chars so front-load it), a line break, then 1-3 more lines. Include exactly 5 relevant hashtags at the end, mix of broad and niche.
-- x_thread: exactly 3 punchy bullet points, no more. First one must work as a standalone hook.
+- x_post: a single standalone tweet — NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Minimum 140 characters (X's real limit is 280, so use the space — don't write something short and padded to hit the minimum, actually say something with it). Hook-first still applies: the opening should stop a scroll.
 - facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that.
 - execution_steps: exactly 4-6 steps, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision. Bad: "Film the video." Good: "Say hook line 1 straight into the camera, no retakes unless you flub words." Include the actual posting-time recommendation as one step (e.g. "Post between 6-9pm local time for best reach") and one step about early engagement (e.g. "Reply to the first 5 comments within 30 min — this signals the algorithm to push it further").
 - core_message and engagement_tip: write these like a friend texting quick honest notes, not a strategist's memo — direct, warm, a little personality. "this hook's solid but the ending's flat" beats "the concluding statement could be strengthened."
@@ -19,7 +19,7 @@ Return strict JSON with this exact shape:
   "core_message": "one sentence",
   "tiktok_reels_script": "string, max 130 words, hook first line",
   "instagram_caption": "string with line breaks, ending in exactly 5 hashtags",
-  "x_thread": ["bullet 1 (hook)", "bullet 2", "bullet 3"],
+  "x_post": "string, single tweet, minimum 140 characters, not numbered, not a thread",
   "facebook_post": "string, max 80 words, conversational",
   "execution_steps": ["step 1", "step 2", "..."],
   "engagement_tip": "one sentence, specific to this piece",
