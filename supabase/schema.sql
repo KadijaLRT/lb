@@ -131,6 +131,10 @@ alter table full_chart_readings enable row level security;
 drop policy if exists "allow all - phase1" on full_chart_readings;
 create policy "allow all - phase1" on full_chart_readings for all using (true) with check (true);
 
+-- Migration for existing installs — create table if not exists won't add
+-- new columns to an already-existing scripts_and_ideas table.
+alter table scripts_and_ideas add column if not exists posted_at jsonb default '{}'::jsonb;
+
 -- Voice sample for content generation — paste real past posts so
 -- generated content actually matches how the person sounds
 alter table user_profile add column if not exists content_voice_sample text;
@@ -171,6 +175,11 @@ create table if not exists scripts_and_ideas (
   engagement_tip text,
   word_count int,
   status text default 'draft' check (status in ('draft', 'ready', 'posted')),
+  -- Per-platform posted tracking — a piece can be posted to TikTok but
+  -- still sitting as a draft on X, so one shared status wasn't enough to
+  -- answer "what have I actually posted where." jsonb like
+  -- {"tiktok": "2026-09-02", "x": null, "instagram": null, "facebook": null}
+  posted_at jsonb default '{}'::jsonb,
   created_at timestamptz default now()
 );
 

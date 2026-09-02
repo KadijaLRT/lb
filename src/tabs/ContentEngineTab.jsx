@@ -23,7 +23,7 @@ export default function ContentEngineTab({ profile, onSaved }) {
         }}
       />
       <ContentQueue profile={profile} refreshKey={queueTick} />
-      <PostingCalendar />
+      <PostingCalendar profile={profile} refreshKey={queueTick} />
     </div>
   );
 }

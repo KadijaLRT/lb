@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Sparkles, ArrowRight, Loader2 } from "lucide-react";
+import { Sparkles, ArrowRight, Loader2, ChevronDown } from "lucide-react";
 import CoachResponse from "./CoachResponse.jsx";
 
 const PROMPTS = [
@@ -10,6 +10,7 @@ const PROMPTS = [
 ];
 
 export default function ContentCoach({ profile }) {
+  const [open, setOpen] = useState(false);
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,51 +52,58 @@ export default function ContentCoach({ profile }) {
   }
 
   return (
-    <div className="border border-line rounded-2xl p-4 flex flex-col gap-3">
-      <div className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted">
-        <Sparkles size={12} className="text-clay" />
-        Ask your content coach
-      </div>
+    <div className="border border-line rounded-2xl overflow-hidden">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center justify-between px-4 py-3">
+        <span className="flex items-center gap-2 text-xs uppercase tracking-[0.2em] text-muted">
+          <Sparkles size={12} className="text-clay" />
+          Ask your content coach
+        </span>
+        <ChevronDown size={16} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+      </button>
 
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          ask();
-        }}
-        className="flex items-center gap-2"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Ask anything about your content"
-          className="flex-1 bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
-        />
-        <button
-          type="submit"
-          disabled={loading || !input.trim()}
-          aria-label="Ask"
-          className="w-8 h-8 rounded-full bg-clay text-ink flex items-center justify-center disabled:opacity-30 shrink-0"
-        >
-          {loading ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
-        </button>
-      </form>
-
-      <div className="flex flex-wrap gap-2">
-        {PROMPTS.map((p) => (
-          <button
-            key={p}
-            type="button"
-            disabled={loading}
-            onClick={() => ask(p)}
-            className="text-xs px-2.5 py-1 rounded-full border border-line text-muted hover:text-cream hover:border-clay transition-colors disabled:opacity-40"
+      {open && (
+        <div className="border-t border-line p-4 flex flex-col gap-3">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              ask();
+            }}
+            className="flex items-center gap-2"
           >
-            {p}
-          </button>
-        ))}
-      </div>
+            <input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Ask anything about your content"
+              className="flex-1 bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60"
+            />
+            <button
+              type="submit"
+              disabled={loading || !input.trim()}
+              aria-label="Ask"
+              className="w-8 h-8 rounded-full bg-clay text-ink flex items-center justify-center disabled:opacity-30 shrink-0"
+            >
+              {loading ? <Loader2 size={14} className="animate-spin" /> : <ArrowRight size={14} />}
+            </button>
+          </form>
 
-      {error && <p className="text-sm text-fire">{error}</p>}
-      <CoachResponse text={response} loading={loading} />
+          <div className="flex flex-wrap gap-2">
+            {PROMPTS.map((p) => (
+              <button
+                key={p}
+                type="button"
+                disabled={loading}
+                onClick={() => ask(p)}
+                className="text-xs px-2.5 py-1 rounded-full border border-line text-muted hover:text-cream hover:border-clay transition-colors disabled:opacity-40"
+              >
+                {p}
+              </button>
+            ))}
+          </div>
+
+          {error && <p className="text-sm text-fire">{error}</p>}
+          <CoachResponse text={response} loading={loading} />
+        </div>
+      )}
     </div>
   );
 }

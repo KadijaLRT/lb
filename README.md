@@ -1,5 +1,29 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Content tab fully collapsible + posted/unposted tracking integrated into the calendar
+- **`ContentCoach.jsx`** now collapses like every other section on the
+  page (was the one exception, always fully expanded).
+- **`ContentEngine.jsx`'s main brain-dump input stays expanded** on
+  purpose — it's the primary action of the whole tab, collapsing it would
+  hide the actual point of the page. Its own idea-generator sub-panel
+  already collapses.
+- **New: `posted_at` per-platform tracking** on `scripts_and_ideas` —
+  jsonb map like `{"tiktok": "2026-09-02", "x": null}`, since one piece
+  might be posted to TikTok and still sitting as a draft on X. Run the
+  schema migration.
+- **Rebuilt `PostingCalendar.jsx`** into a real posted/unposted tracker,
+  not a separate reference panel: fetches your actual saved content, shows
+  "Still to post" (with tap-to-mark-posted buttons per platform — only for
+  platforms that actually have content generated) and "Posted" as two
+  distinct sections, directly above the same honest posting-time guidance
+  from before. Only counts a platform against a piece if content actually
+  exists for it — a script with no Facebook post generated doesn't count
+  as "unposted on Facebook."
+- Verified the grouping and toggle logic directly: partial-platform
+  posting (2 of 4 platforms have content, 1 posted) correctly sorts into
+  "still to post," and toggling one platform's posted state never touches
+  another platform's.
+
 ## Full UX/UI audit — Action, Content, Finance, Blueprint (18 real bugs found and fixed)
 Went through every component in all four tabs. Grouped by what kind of bug:
 

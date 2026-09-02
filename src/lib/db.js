@@ -326,6 +326,28 @@ export async function updateScriptStatus(scriptId, status) {
   return data;
 }
 
+// Toggles a single platform's posted date on/off within the posted_at
+// jsonb map — setting it (not clearing an unrelated platform) and lets the
+// overall status auto-advance to "posted" once every platform that has
+// content is marked posted, or back to "ready" if you undo one.
+export async function toggleScriptPlatformPosted(scriptId, platformKey, currentPostedAt, isoDate) {
+  if (!supabase) return null;
+  const nextPostedAt = { ...(currentPostedAt || {}) };
+  if (nextPostedAt[platformKey]) {
+    delete nextPostedAt[platformKey];
+  } else {
+    nextPostedAt[platformKey] = isoDate;
+  }
+  const { data, error } = await supabase
+    .from("scripts_and_ideas")
+    .update({ posted_at: nextPostedAt })
+    .eq("id", scriptId)
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function deleteScript(scriptId) {
   if (!supabase) return null;
   const { error } = await supabase.from("scripts_and_ideas").delete().eq("id", scriptId);
