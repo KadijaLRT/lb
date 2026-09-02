@@ -1,5 +1,45 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Three fixes: coach tone, content framing, queue expansion
+- **Coach now adapts tone to topic**, instead of one flat register for
+  everything. Venting/struggle gets a slower, validating beat before
+  advice; quick logistics skip that entirely and get straight to it;
+  money questions stay direct and plain; content brainstorming gets more
+  energy and personality; good news actually sounds glad instead of
+  landing in the same even register as everything else.
+- **Content no longer forced into problem→solution shape.** `content.js`
+  now explicitly says: if the brain dump is a reflection, an opinion, or
+  just a topic worth talking about — including something personal that
+  affects you — let the content be that. No manufactured struggle-then-fix
+  arc bolted onto something that's just a real thought.
+- **Queue items now reopen with everything, not just the main script.**
+  Real bug: `instagram_caption`, `x_thread`, `facebook_post`,
+  `execution_steps`, and `engagement_tip` were already being saved to the
+  database every time — just never displayed again. Reopening a queued
+  idea only ever showed the TikTok/Reels script. Rebuilt `ContentQueue.jsx`
+  with the same 4-platform tabbed view as the main generator, plus the
+  engagement tip and step list, each platform with its own copy button.
+
+## Content section tone fixed
+The actual generated content (scripts, captions, posts, idea hooks) had no
+voice guidance beyond format rules — the prompts framed everything as a
+"content repurposing engine" and "content strategist... optimizing for
+engagement," which is corporate-marketer language, and with nothing
+telling the OUTPUT itself to sound like a real person, it defaulted to
+generic AI-content patterns.
+
+Rewrote both `content.js` and `content-ideas.js`:
+- Dropped the "engine"/"strategist" self-framing — reframed as helping a
+  friend, not running a content operation.
+- Added explicit voice rules for the generated content itself, not just
+  the coaching notes around it: no "Let's dive in," no "Here's the thing,"
+  no stacked exclamation points, no generic CTAs ("Drop a comment below!"),
+  no hollow hype — write it the way the person would actually say it out
+  loud.
+- Same fix applied to idea-generator hooks specifically, since those were
+  reading like marketing-template angles rather than real thoughts someone
+  had.
+
 ## X content: already fixed in code (stale deploy), but found a real save bug
 The numbered "1/2/3" thread format in your screenshot doesn't exist in the
 current code — `content.js` already specifies `x_post` as a single tweet

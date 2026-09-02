@@ -1,10 +1,110 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Check, Trash2 } from "lucide-react";
+import { ChevronDown, Check, Trash2, Copy, Zap } from "lucide-react";
 import { listScripts, updateScriptStatus, deleteScript } from "../lib/db.js";
 
 const STATUS_CYCLE = { draft: "ready", ready: "posted", posted: "draft" };
 const STATUS_LABEL = { draft: "Draft", ready: "Ready", posted: "Posted" };
 const STATUS_COLOR = { draft: "text-muted", ready: "text-clay", posted: "text-earth" };
+const PLATFORM_TABS = ["TikTok/Reels", "Instagram", "X Post", "Facebook"];
+
+function MiniCopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  async function handleCopy(e) {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text || "");
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    } catch {
+      // silent — this is a small inline affordance, a failed copy just doesn't confirm
+    }
+  }
+  return (
+    <button type="button" onClick={handleCopy} className="text-[10px] text-muted hover:text-cream flex items-center gap-1">
+      <Copy size={10} />
+      {copied ? "Copied" : "Copy"}
+    </button>
+  );
+}
+
+// Full multi-platform view for a saved queue item — reopening a queued
+// idea should show everything that was generated (script, caption, X post,
+// Facebook post, steps, the engagement tip), not just the main script.
+function ExpandedQueueItem({ script }) {
+  const [tab, setTab] = useState("TikTok/Reels");
+  return (
+    <div className="border-t border-line pt-2 mt-1 flex flex-col gap-2">
+      {script.engagement_tip && (
+        <div className="flex items-start gap-2 text-xs text-clay">
+          <Zap size={11} className="shrink-0 mt-0.5" />
+          {script.engagement_tip}
+        </div>
+      )}
+
+      <div className="flex flex-wrap gap-1.5">
+        {PLATFORM_TABS.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setTab(t);
+            }}
+            className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
+              tab === t ? "border-clay text-clay" : "border-line text-muted"
+            }`}
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {tab === "TikTok/Reels" && (
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <MiniCopyButton text={script.short_form_script} />
+          </div>
+          <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.short_form_script || "(none saved)"}</p>
+        </div>
+      )}
+      {tab === "Instagram" && (
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <MiniCopyButton text={script.instagram_caption} />
+          </div>
+          <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.instagram_caption || "(none saved)"}</p>
+        </div>
+      )}
+      {tab === "X Post" && (
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <MiniCopyButton text={script.x_thread} />
+          </div>
+          <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.x_thread || "(none saved)"}</p>
+        </div>
+      )}
+      {tab === "Facebook" && (
+        <div className="flex flex-col gap-1">
+          <div className="flex justify-end">
+            <MiniCopyButton text={script.facebook_post} />
+          </div>
+          <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.facebook_post || "(none saved)"}</p>
+        </div>
+      )}
+
+      {script.execution_steps?.length > 0 && (
+        <div className="pt-1 border-t border-line flex flex-col gap-1">
+          <span className="text-[10px] uppercase tracking-wider text-muted">Steps</span>
+          {script.execution_steps.map((s, i) => (
+            <span key={i} className="text-xs text-muted">
+              {i + 1}. {s}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ContentQueue({ profile, refreshKey }) {
   const [open, setOpen] = useState(false);
@@ -59,7 +159,7 @@ export default function ContentQueue({ profile, refreshKey }) {
         <ChevronDown size={16} className={`text-muted transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
       {open && (
-        <div className="border-t border-line divide-y divide-line max-h-80 overflow-y-auto">
+        <div className="border-t border-line divide-y divide-line max-h-96 overflow-y-auto">
           {loading && <p className="p-4 text-sm text-muted">Loading…</p>}
           {actionError && <p className="px-4 pt-3 text-sm text-fire">{actionError}</p>}
           {!loading && scripts.length === 0 && (
@@ -97,11 +197,7 @@ export default function ContentQueue({ profile, refreshKey }) {
                   {STATUS_LABEL[s.status] || "Draft"}
                 </button>
               </div>
-              {expandedId === s.id && (
-                <p className="text-sm text-cream/90 whitespace-pre-wrap border-t border-line pt-2 mt-1">
-                  {s.short_form_script}
-                </p>
-              )}
+              {expandedId === s.id && <ExpandedQueueItem script={s} />}
             </div>
           ))}
         </div>
