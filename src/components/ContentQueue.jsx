@@ -172,6 +172,7 @@ export default function ContentQueue({ profile, refreshKey }) {
     try {
       await deleteScript(script.id);
       setScripts((prev) => prev.filter((s) => s.id !== script.id));
+      setExpandedId((prev) => (prev === script.id ? null : prev));
     } catch (err) {
       console.error(err);
       setActionError("Couldn't delete that.");

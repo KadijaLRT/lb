@@ -30,13 +30,15 @@ export default function App() {
   const [tab, setTab] = useState("action");
 
   async function handleLogExpense({ amount, category, note }) {
-    if (!account) return;
+    if (!account) {
+      throw new Error("Your account isn't ready yet — try again in a moment.");
+    }
     await logExpense(account.id, { amount, category, note });
     await refreshSpend(account);
   }
 
   async function handleScriptSaved(dump, result) {
-    if (!profile) return;
+    if (!profile) throw new Error("Still loading your profile — try again in a moment.");
     try {
       await saveScript(profile.id, {
         raw_brain_dump: dump,

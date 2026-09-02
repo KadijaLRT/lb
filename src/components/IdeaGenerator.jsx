@@ -92,7 +92,7 @@ export default function IdeaGenerator({ profile, onUseIdea }) {
                     </span>
                   </div>
                   <p className="text-sm text-cream leading-snug">{idea.hook}</p>
-                  <div className="flex items-center gap-1 mt-2 text-xs text-clay opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex items-center gap-1 mt-2 text-xs text-clay">
                     Use this <ArrowRight size={11} />
                   </div>
                 </button>

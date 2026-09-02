@@ -77,6 +77,11 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
     setResponse("");
     setCandidateSteps([]);
     setAddedSteps({});
+    // Clear the other action's leftover state too — asking a new question
+    // shouldn't leave a stale "saved to queue" banner or script error
+    // sitting on screen from a previous scriptify() call.
+    setScriptError("");
+    setScriptSaved(false);
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -118,6 +123,9 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
     setScriptLoading(true);
     setScriptError("");
     setScriptSaved(false);
+    // Same reasoning in reverse — a fresh script attempt shouldn't leave a
+    // stale coach error or response banner from a previous ask() call.
+    setError("");
     try {
       const res = await fetch("/api/content", {
         method: "POST",
@@ -173,12 +181,12 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
       )}
 
       <section>
-        <PrimaryAction value={input} onChange={setInput} onSubmit={() => ask()} loading={loading} />
+        <PrimaryAction value={input} onChange={setInput} onSubmit={() => ask()} loading={loading || scriptLoading} />
         <QuickActions
           onPick={(p) => ask(p)}
-          disabled={loading}
+          disabled={loading || scriptLoading}
           onScriptify={scriptify}
-          scriptDisabled={scriptLoading || !input.trim()}
+          scriptDisabled={scriptLoading || loading || !input.trim()}
         />
         {error && <p className="mt-4 text-sm text-fire">{error}</p>}
         <CoachResponse text={response} loading={loading} />

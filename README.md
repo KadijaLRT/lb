@@ -1,5 +1,49 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Full UX/UI audit — Action, Content, Finance, Blueprint (18 real bugs found and fixed)
+Went through every component in all four tabs. Grouped by what kind of bug:
+
+**Silently-failing saves (the most serious class — 4 found):**
+`useKadijaData.js`'s `setMicroTasks`, `setFocus`, and `saveProfileFields`,
+plus `App.jsx`'s `handleScriptSaved` and `handleLogExpense`, all had
+`if (!profile) return;` (or `if (!account) return;`) with no error thrown.
+Every caller wraps these in try/catch expecting a real failure to surface
+— so if the action fired before the profile/account finished loading, the
+UI would show "Saved!" / close the modal / clear the input, while nothing
+was actually written. Fixed all 5 to throw a real, catchable error instead.
+
+**Touch-invisible UI (2 found):** the micro-task delete button and the
+idea generator's "Use this →" cue were both `opacity-0 group-hover` — a
+pattern that has no equivalent on touch devices, making them permanently
+invisible on the phone this app is built for. Removed the hover-gating.
+
+**Stale state bleeding across contexts (3 found, one serious):**
+switching Go Deeper areas didn't clear the follow-up chat's messages —
+Career's conversation could stay visibly on screen after switching to
+Love until new data loaded. Same bug in scenario-advice chat between
+different questions. Also: coach and script-generation state on Action
+Center didn't reset when switching between the two independent flows,
+so a stale "saved to queue" banner could linger over a fresh coach answer.
+
+**Dead-end error states (1 found):** Spending Trend's fetch error
+permanently replaced the whole component with just error text — no retry,
+no recovery short of a full reload. Added a retry button.
+
+**Form/edit conflicts (2 found):** Goals Tracker's "Add goal" and "Edit
+goal" forms could both be open simultaneously; deleting a goal or content-
+queue item mid-edit left orphaned edit-state pointing at nothing.
+
+**Missing error handling (1 found):** Impulse Pause's coach call had zero
+error handling — a failed request just silently stopped loading with
+nothing shown, and reopening didn't clear the previous question.
+
+**Minor state hygiene (5 found):** Expense modal's error/category
+persisting across opens; race condition letting the primary input and
+script button fire overlapping requests; a defensive fix for a
+divide-by-zero edge case in the safe-to-spend bar.
+
+All fixes verified with a clean production build.
+
 ## Content: algorithm signals, per-platform steps, de-goal-ified ideas, posting calendar
 Several fixes and one new feature, all in the Content tab:
 

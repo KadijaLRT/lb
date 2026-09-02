@@ -116,6 +116,8 @@ export default function GoalsTracker({ profile }) {
   }
 
   function startEdit(goal) {
+    setShowForm(false);
+    setImportSuggestions(null);
     setEditingId(goal.id);
     setEditForm(goalToEditForm(goal));
   }
@@ -157,6 +159,10 @@ export default function GoalsTracker({ profile }) {
     try {
       await deleteGoal(goal.id);
       setGoals((prev) => prev.filter((g) => g.id !== goal.id));
+      if (editingId === goal.id) {
+        setEditingId(null);
+        setEditForm(null);
+      }
     } catch (err) {
       console.error(err);
       setError("Couldn't delete that goal.");

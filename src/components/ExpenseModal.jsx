@@ -11,6 +11,11 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
 
   if (!open) return null;
 
+  function handleClose() {
+    setError("");
+    onClose();
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     const value = parseFloat(amount);
@@ -20,6 +25,7 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
     try {
       await onSubmit({ amount: value, category, note: "" });
       setAmount("");
+      setCategory("Food");
       onClose();
     } catch (err) {
       console.error("Expense log failed:", err);
@@ -34,7 +40,7 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
       <div className="w-full max-w-sm bg-panel border border-line rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl text-cream">Log expense</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-muted hover:text-cream">
+          <button type="button" onClick={handleClose} aria-label="Close" className="text-muted hover:text-cream">
             <X size={18} />
           </button>
         </div>

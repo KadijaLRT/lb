@@ -16,6 +16,7 @@ export default function ChatFollowUp({ area, profile, priorReading, contextKey }
 
   useEffect(() => {
     if (!open || !contextKey || !profile?.id) return;
+    setMessages([]);
     setLoadingHistory(true);
     listChatMessages(profile.id, contextKey)
       .then((rows) => setMessages(rows.map((r) => ({ role: r.role, content: r.content }))))

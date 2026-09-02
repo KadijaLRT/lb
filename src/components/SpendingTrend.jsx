@@ -1,22 +1,34 @@
 import { useEffect, useState } from "react";
-import { TrendingUp } from "lucide-react";
+import { TrendingUp, RefreshCw } from "lucide-react";
 import { getWeeklySpendTrend } from "../lib/db.js";
 
 export default function SpendingTrend({ accountId, weeklyBudget, refreshKey }) {
   const [weeks, setWeeks] = useState(null);
   const [error, setError] = useState("");
+  const [retryTick, setRetryTick] = useState(0);
 
   useEffect(() => {
     if (!accountId) return;
+    setError("");
     getWeeklySpendTrend(accountId, 6)
       .then(setWeeks)
       .catch((err) => {
         console.error(err);
         setError("Couldn't load spending trend.");
       });
-  }, [accountId, refreshKey]);
+  }, [accountId, refreshKey, retryTick]);
 
-  if (error) return <p className="text-sm text-fire">{error}</p>;
+  if (error) {
+    return (
+      <div className="flex items-center justify-between text-sm text-fire">
+        <span>{error}</span>
+        <button type="button" onClick={() => setRetryTick((t) => t + 1)} className="flex items-center gap-1 text-xs hover:underline">
+          <RefreshCw size={11} />
+          Retry
+        </button>
+      </div>
+    );
+  }
   if (!weeks) return null;
 
   const max = Math.max(weeklyBudget, ...weeks.map((w) => w.total), 1);

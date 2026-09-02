@@ -46,7 +46,7 @@ export default function MicroTaskList({ tasks = [], onChange }) {
               type="button"
               onClick={() => remove(i)}
               aria-label="Remove"
-              className="text-muted opacity-0 group-hover:opacity-100 hover:text-fire transition-opacity"
+              className="text-muted hover:text-fire transition-opacity"
             >
               <X size={14} />
             </button>

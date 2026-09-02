@@ -68,7 +68,7 @@ export function useKadijaData() {
 
   const setMicroTasks = useCallback(
     async (tasks) => {
-      if (!profile) return;
+      if (!profile) throw new Error("Still loading your profile — try again in a moment.");
       const bp = await upsertTodayBlueprint(profile.id, { micro_tasks: tasks });
       setBlueprint(bp);
     },
@@ -77,7 +77,7 @@ export function useKadijaData() {
 
   const setFocus = useCallback(
     async (text, elementTag) => {
-      if (!profile) return;
+      if (!profile) throw new Error("Still loading your profile — try again in a moment.");
       const bp = await upsertTodayBlueprint(profile.id, {
         primary_focus: text,
         element_tag: elementTag,
@@ -89,7 +89,7 @@ export function useKadijaData() {
 
   const saveProfileFields = useCallback(
     async (patch) => {
-      if (!profile) return;
+      if (!profile) throw new Error("Still loading your profile — try again in a moment.");
       const p = await updateProfile(profile.id, patch);
       setProfile(p);
       // FinancePulse/FinancialHubTab read from financial_accounts.weekly_spend_limit,

@@ -1,7 +1,8 @@
 import { Plus } from "lucide-react";
 
 export default function FinancePulse({ safeToSpend = 0, weeklyBudget = 1, onLogExpense }) {
-  const pct = Math.max(0, Math.min(100, (safeToSpend / weeklyBudget) * 100));
+  const safeBudget = weeklyBudget > 0 ? weeklyBudget : 1;
+  const pct = Math.max(0, Math.min(100, (safeToSpend / safeBudget) * 100));
   return (
     <div className="border border-line rounded-2xl p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between">

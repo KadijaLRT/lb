@@ -251,7 +251,7 @@ export default function LifeAreaExplorer({ profile }) {
             {scenarioResult && (
               <div className="pt-2 border-t border-line flex flex-col gap-3">
                 <ReadingBlock result={scenarioResult} />
-                <ChatFollowUp area={active} profile={profile} priorReading={scenarioResult.reading} />
+                <ChatFollowUp key={scenarioResult.reading} area={active} profile={profile} priorReading={scenarioResult.reading} />
               </div>
             )}
           </>

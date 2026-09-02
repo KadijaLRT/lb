@@ -7,6 +7,7 @@ export default function ImpulsePause({ context }) {
   const [what, setWhat] = useState("");
   const [reflection, setReflection] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     if (!open || seconds <= 0) return;
@@ -18,11 +19,15 @@ export default function ImpulsePause({ context }) {
     setOpen(true);
     setSeconds(30);
     setReflection("");
+    setWhat("");
+    setError("");
   }
 
   async function askCoach() {
     if (!what.trim()) return;
     setLoading(true);
+    setError("");
+    setReflection("");
     try {
       const res = await fetch("/api/coach", {
         method: "POST",
@@ -32,8 +37,12 @@ export default function ImpulsePause({ context }) {
           context,
         }),
       });
-      const data = await res.json();
-      setReflection(data.reply || "");
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || `Coach request failed (${res.status})`);
+      if (!data.reply) throw new Error("Got an empty response back.");
+      setReflection(data.reply);
+    } catch (err) {
+      setError(err.message || "Something went wrong — try again.");
     } finally {
       setLoading(false);
     }
@@ -73,6 +82,7 @@ export default function ImpulsePause({ context }) {
         {loading && <Loader2 size={12} className="animate-spin" />}
         Ask the coach
       </button>
+      {error && <p className="text-sm text-fire">{error}</p>}
       {reflection && <p className="text-sm text-cream/90">{reflection}</p>}
       <button
         type="button"
