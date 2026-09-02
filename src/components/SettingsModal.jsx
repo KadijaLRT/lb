@@ -18,6 +18,12 @@ const FIELDS = [
     type: "textarea",
     section: "Astrology",
   },
+  {
+    key: "content_voice_sample",
+    label: "Paste a few of your own past posts/tweets (optional) — generated content will match how you actually sound",
+    type: "textarea",
+    section: "Content",
+  },
 ];
 
 function ChartParsePreview({ notes }) {

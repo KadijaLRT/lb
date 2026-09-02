@@ -131,6 +131,14 @@ alter table full_chart_readings enable row level security;
 drop policy if exists "allow all - phase1" on full_chart_readings;
 create policy "allow all - phase1" on full_chart_readings for all using (true) with check (true);
 
+-- Voice sample for content generation — paste real past posts so
+-- generated content actually matches how the person sounds
+alter table user_profile add column if not exists content_voice_sample text;
+
+-- Algorithm-boost fields for generated content
+alter table scripts_and_ideas add column if not exists hook_variants jsonb default '[]'::jsonb;
+alter table scripts_and_ideas add column if not exists algorithm_boost jsonb default '[]'::jsonb;
+
 -- Job application tracker — works toward the salary/job goal in core_goals
 create table if not exists job_applications (
   id uuid primary key default uuid_generate_v4(),

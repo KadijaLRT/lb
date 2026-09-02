@@ -1,8 +1,13 @@
 import { useState } from "react";
-import { Mic, Loader2, Copy, Check, Zap } from "lucide-react";
+import { Mic, Loader2, Copy, Check, Zap, RefreshCw, TrendingUp } from "lucide-react";
 import IdeaGenerator from "./IdeaGenerator.jsx";
 
-const TABS = ["TikTok/Reels", "Instagram", "X Post", "Facebook"];
+const TABS = [
+  { label: "TikTok/Reels", key: "tiktok" },
+  { label: "Instagram", key: "instagram" },
+  { label: "X Post", key: "x" },
+  { label: "Facebook", key: "facebook" },
+];
 
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -34,13 +39,22 @@ function CopyButton({ text }) {
   );
 }
 
+// execution_steps used to be one shared array; now it's an object keyed by
+// platform. Handles both shapes so older saved queue items don't break.
+function stepsForPlatform(executionSteps, platformKey) {
+  if (!executionSteps) return [];
+  if (Array.isArray(executionSteps)) return executionSteps; // old shared-list shape
+  return executionSteps[platformKey] || [];
+}
+
 export default function ContentEngine({ profile, onSaved }) {
   const [dump, setDump] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-  const [tab, setTab] = useState("TikTok/Reels");
+  const [tab, setTab] = useState("tiktok");
   const [checkedSteps, setCheckedSteps] = useState({});
+  const [activeHook, setActiveHook] = useState(0); // 0 = original, 1/2 = variants
 
   async function transform(brainDumpOverride) {
     const text = brainDumpOverride ?? dump;
@@ -49,6 +63,7 @@ export default function ContentEngine({ profile, onSaved }) {
     setError("");
     setResult(null);
     setCheckedSteps({});
+    setActiveHook(0);
     try {
       const res = await fetch("/api/content", {
         method: "POST",
@@ -73,6 +88,9 @@ export default function ContentEngine({ profile, onSaved }) {
     setDump(hook);
     transform(hook);
   }
+
+  const hookOptions = result ? [result.tiktok_reels_script, ...(result.hook_variants || [])] : [];
+  const currentScript = hookOptions[activeHook] || result?.tiktok_reels_script;
 
   return (
     <div className="flex flex-col gap-4">
@@ -115,32 +133,65 @@ export default function ContentEngine({ profile, onSaved }) {
               </div>
             )}
 
+            {result.algorithm_boost?.length > 0 && (
+              <div className="flex flex-col gap-1.5 bg-panel/50 border border-line rounded-xl p-3">
+                <span className="text-[10px] uppercase tracking-[0.2em] text-muted flex items-center gap-1.5">
+                  <TrendingUp size={11} />
+                  Why this could work — real platform signals, not a guarantee
+                </span>
+                {result.algorithm_boost.map((item, i) => (
+                  <div key={i} className="text-xs text-cream/90">
+                    <span className="text-clay font-medium">{item.signal}:</span> {item.note}
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex flex-wrap gap-2">
               {TABS.map((t) => (
                 <button
-                  key={t}
+                  key={t.key}
                   type="button"
-                  onClick={() => setTab(t)}
+                  onClick={() => setTab(t.key)}
                   className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
-                    tab === t ? "border-clay text-clay" : "border-line text-muted hover:text-cream"
+                    tab === t.key ? "border-clay text-clay" : "border-line text-muted hover:text-cream"
                   }`}
                 >
-                  {t}
+                  {t.label}
                 </button>
               ))}
             </div>
 
-            {tab === "TikTok/Reels" && (
+            {tab === "tiktok" && (
               <div className="flex flex-col gap-2">
+                {hookOptions.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {hookOptions.map((_, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        onClick={() => setActiveHook(i)}
+                        className={`text-[10px] px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                          activeHook === i ? "border-clay text-clay" : "border-line text-muted"
+                        }`}
+                      >
+                        {i === 0 ? "Original" : `Alt hook ${i}`}
+                        {activeHook !== i && <RefreshCw size={9} />}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
-                  <span className="text-xs text-muted">{result.word_count} words · also works for IG/FB Reels</span>
-                  <CopyButton text={result.tiktok_reels_script} />
+                  <span className="text-xs text-muted">
+                    {activeHook === 0 ? `${result.word_count} words · ` : ""}also works for IG/FB Reels
+                  </span>
+                  <CopyButton text={currentScript} />
                 </div>
-                <p className="text-cream/90 leading-relaxed whitespace-pre-wrap">{result.tiktok_reels_script}</p>
+                <p className="text-cream/90 leading-relaxed whitespace-pre-wrap">{currentScript}</p>
               </div>
             )}
 
-            {tab === "Instagram" && (
+            {tab === "instagram" && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted">Caption (post video from TikTok/Reels tab)</span>
@@ -150,7 +201,7 @@ export default function ContentEngine({ profile, onSaved }) {
               </div>
             )}
 
-            {tab === "X Post" && (
+            {tab === "x" && (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center justify-between">
                   <span className="text-xs text-muted">{(result.x_post || "").length} characters</span>
@@ -160,7 +211,7 @@ export default function ContentEngine({ profile, onSaved }) {
               </div>
             )}
 
-            {tab === "Facebook" && (
+            {tab === "facebook" && (
               <div className="flex flex-col gap-2">
                 <div className="flex justify-end">
                   <CopyButton text={result.facebook_post} />
@@ -169,18 +220,20 @@ export default function ContentEngine({ profile, onSaved }) {
               </div>
             )}
 
-            {result.execution_steps?.length > 0 && (
+            {stepsForPlatform(result.execution_steps, tab).length > 0 && (
               <div className="mt-2 pt-3 border-t border-line flex flex-col gap-1.5">
-                <span className="text-xs uppercase tracking-[0.2em] text-muted mb-1">Exact steps</span>
-                {result.execution_steps.map((s, i) => (
+                <span className="text-xs uppercase tracking-[0.2em] text-muted mb-1">
+                  Exact steps — {TABS.find((t) => t.key === tab)?.label}
+                </span>
+                {stepsForPlatform(result.execution_steps, tab).map((s, i) => (
                   <label key={i} className="flex items-center gap-2 text-sm text-muted">
                     <input
                       type="checkbox"
-                      checked={!!checkedSteps[i]}
-                      onChange={() => setCheckedSteps((prev) => ({ ...prev, [i]: !prev[i] }))}
+                      checked={!!checkedSteps[`${tab}-${i}`]}
+                      onChange={() => setCheckedSteps((prev) => ({ ...prev, [`${tab}-${i}`]: !prev[`${tab}-${i}`] }))}
                       className="accent-[#C96A4B]"
                     />
-                    <span className={checkedSteps[i] ? "line-through text-muted/60" : ""}>{s}</span>
+                    <span className={checkedSteps[`${tab}-${i}`] ? "line-through text-muted/60" : ""}>{s}</span>
                   </label>
                 ))}
               </div>

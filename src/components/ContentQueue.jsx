@@ -1,11 +1,16 @@
 import { useEffect, useState } from "react";
-import { ChevronDown, Check, Trash2, Copy, Zap } from "lucide-react";
+import { ChevronDown, Check, Trash2, Copy, Zap, TrendingUp } from "lucide-react";
 import { listScripts, updateScriptStatus, deleteScript } from "../lib/db.js";
 
 const STATUS_CYCLE = { draft: "ready", ready: "posted", posted: "draft" };
 const STATUS_LABEL = { draft: "Draft", ready: "Ready", posted: "Posted" };
 const STATUS_COLOR = { draft: "text-muted", ready: "text-clay", posted: "text-earth" };
-const PLATFORM_TABS = ["TikTok/Reels", "Instagram", "X Post", "Facebook"];
+const PLATFORM_TABS = [
+  { label: "TikTok/Reels", key: "tiktok" },
+  { label: "Instagram", key: "instagram" },
+  { label: "X Post", key: "x" },
+  { label: "Facebook", key: "facebook" },
+];
 
 function MiniCopyButton({ text }) {
   const [copied, setCopied] = useState(false);
@@ -27,11 +32,20 @@ function MiniCopyButton({ text }) {
   );
 }
 
+// execution_steps used to be one shared array; now it's an object keyed by
+// platform. Handles both shapes so older saved queue items still display.
+function stepsForPlatform(executionSteps, platformKey) {
+  if (!executionSteps) return [];
+  if (Array.isArray(executionSteps)) return executionSteps;
+  return executionSteps[platformKey] || [];
+}
+
 // Full multi-platform view for a saved queue item — reopening a queued
 // idea should show everything that was generated (script, caption, X post,
-// Facebook post, steps, the engagement tip), not just the main script.
+// Facebook post, per-platform steps, the tip, why it might work), not just
+// the main script.
 function ExpandedQueueItem({ script }) {
-  const [tab, setTab] = useState("TikTok/Reels");
+  const [tab, setTab] = useState("tiktok");
   return (
     <div className="border-t border-line pt-2 mt-1 flex flex-col gap-2">
       {script.engagement_tip && (
@@ -41,25 +55,39 @@ function ExpandedQueueItem({ script }) {
         </div>
       )}
 
+      {script.algorithm_boost?.length > 0 && (
+        <div className="flex flex-col gap-1 bg-panel/50 border border-line rounded-lg p-2">
+          <span className="text-[9px] uppercase tracking-wider text-muted flex items-center gap-1">
+            <TrendingUp size={10} />
+            Why this could work
+          </span>
+          {script.algorithm_boost.map((item, i) => (
+            <span key={i} className="text-[11px] text-cream/90">
+              <span className="text-clay">{item.signal}:</span> {item.note}
+            </span>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap gap-1.5">
         {PLATFORM_TABS.map((t) => (
           <button
-            key={t}
+            key={t.key}
             type="button"
             onClick={(e) => {
               e.stopPropagation();
-              setTab(t);
+              setTab(t.key);
             }}
             className={`text-[10px] px-2 py-0.5 rounded-full border transition-colors ${
-              tab === t ? "border-clay text-clay" : "border-line text-muted"
+              tab === t.key ? "border-clay text-clay" : "border-line text-muted"
             }`}
           >
-            {t}
+            {t.label}
           </button>
         ))}
       </div>
 
-      {tab === "TikTok/Reels" && (
+      {tab === "tiktok" && (
         <div className="flex flex-col gap-1">
           <div className="flex justify-end">
             <MiniCopyButton text={script.short_form_script} />
@@ -67,7 +95,7 @@ function ExpandedQueueItem({ script }) {
           <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.short_form_script || "(none saved)"}</p>
         </div>
       )}
-      {tab === "Instagram" && (
+      {tab === "instagram" && (
         <div className="flex flex-col gap-1">
           <div className="flex justify-end">
             <MiniCopyButton text={script.instagram_caption} />
@@ -75,7 +103,7 @@ function ExpandedQueueItem({ script }) {
           <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.instagram_caption || "(none saved)"}</p>
         </div>
       )}
-      {tab === "X Post" && (
+      {tab === "x" && (
         <div className="flex flex-col gap-1">
           <div className="flex justify-end">
             <MiniCopyButton text={script.x_thread} />
@@ -83,7 +111,7 @@ function ExpandedQueueItem({ script }) {
           <p className="text-sm text-cream/90 whitespace-pre-wrap">{script.x_thread || "(none saved)"}</p>
         </div>
       )}
-      {tab === "Facebook" && (
+      {tab === "facebook" && (
         <div className="flex flex-col gap-1">
           <div className="flex justify-end">
             <MiniCopyButton text={script.facebook_post} />
@@ -92,10 +120,12 @@ function ExpandedQueueItem({ script }) {
         </div>
       )}
 
-      {script.execution_steps?.length > 0 && (
+      {stepsForPlatform(script.execution_steps, tab).length > 0 && (
         <div className="pt-1 border-t border-line flex flex-col gap-1">
-          <span className="text-[10px] uppercase tracking-wider text-muted">Steps</span>
-          {script.execution_steps.map((s, i) => (
+          <span className="text-[10px] uppercase tracking-wider text-muted">
+            Steps — {PLATFORM_TABS.find((t) => t.key === tab)?.label}
+          </span>
+          {stepsForPlatform(script.execution_steps, tab).map((s, i) => (
             <span key={i} className="text-xs text-muted">
               {i + 1}. {s}
             </span>

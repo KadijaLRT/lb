@@ -1,5 +1,40 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Content: algorithm signals, per-platform steps, de-goal-ified ideas, posting calendar
+Several fixes and one new feature, all in the Content tab:
+
+- **Couldn't read your X account** — tried both direct fetch and search; X
+  blocks scraping entirely for logged-out access, confirmed rather than
+  guessed. Added a real fix instead of giving up: a "Voice sample" field
+  in Settings (paste a few of your own past posts) that both `content.js`
+  and `content-ideas.js` now weight heavily when generating anything.
+- **Found the actual cause of goal-centric ideas**: with no brain dump to
+  work from, your goals were the *only* substantive context the idea
+  generator had, so it leaned on them for all 5 suggestions every time.
+  Fixed with a hard numeric cap — at most 1 of 5 ideas may touch your
+  goals now, not just softer wording asking it to be "relevant." Same fix
+  applied to `ContentCoach.jsx`, which was doing the same thing (that's
+  what produced the "Stuck on the next piece?" screenshot).
+- **Execution steps are now genuinely per-platform** — used to be one
+  shared checklist for all 4 platforms even though TikTok (filming),
+  Instagram (caption + cover frame + Stories), X (timing + reply
+  mechanics), and Facebook (Groups + comment-seeding) all work completely
+  differently. Steps now live under the platform tab they actually apply
+  to. Old saved queue items with the previous shared-list format still
+  display correctly (verified directly).
+- **New: real algorithm-signal breakdown**, not hype. Every generated
+  piece now gets 3 honest notes — Retention (does the hook actually hold),
+  Shareability (is there a specific save/send-worthy line), Comments (does
+  anything genuinely invite a reply) — tied to well-documented platform
+  mechanics, explicitly told never to claim or imply guaranteed virality.
+- **New: hook variants** — 2 real alternate opening lines per script to
+  A/B test, not just a reworded version of the same hook.
+- **New: "When to post" calendar** in Content tab — general, honestly-
+  framed posting-window guidance per platform from widely-reported
+  creator research. Explicitly labeled as NOT personalized, NOT live
+  trend data (nothing here has access to that), and NOT a guarantee —
+  your own account's real analytics beat this once you have them.
+
 ## Three fixes: coach tone, content framing, queue expansion
 - **Coach now adapts tone to topic**, instead of one flat register for
   everything. Venting/struggle gets a slower, validating beat before

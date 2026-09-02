@@ -2,6 +2,7 @@ import { useState } from "react";
 import ContentCoach from "../components/ContentCoach.jsx";
 import ContentEngine from "../components/ContentEngine.jsx";
 import ContentQueue from "../components/ContentQueue.jsx";
+import PostingCalendar from "../components/PostingCalendar.jsx";
 
 export default function ContentEngineTab({ profile, onSaved }) {
   const [queueTick, setQueueTick] = useState(0);
@@ -22,6 +23,7 @@ export default function ContentEngineTab({ profile, onSaved }) {
         }}
       />
       <ContentQueue profile={profile} refreshKey={queueTick} />
+      <PostingCalendar />
     </div>
   );
 }

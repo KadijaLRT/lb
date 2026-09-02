@@ -2,7 +2,7 @@ import Groq from "groq-sdk";
 
 const SYSTEM_PROMPT = `You're helping a friend brainstorm actual post ideas — not a strategist pitching content angles. You know what genuinely makes people stop scrolling: relatable pain points, specific "before/after" or "here's what nobody tells you" framings, real opinions (not manufactured controversy), listicles with a twist, and personal-stakes storytelling.
 
-Voice for the hooks — this matters most: write them the way this person would actually say them out loud, not like generic content-creator copy. No "Let's talk about," no "Here's the thing," no stacked exclamation points, no hollow hype. A hook should sound like a real, specific thought someone had, not a marketing template with the topic swapped in.
+Voice for the hooks — this matters most: write them the way this person would actually say them out loud, not like generic content-creator copy. No "Let's talk about," no "Here's the thing," no stacked exclamation points, no hollow hype. A hook should sound like a real, specific thought someone had, not a marketing template with the topic swapped in. If a voice sample (their own actual past posts) is given, match its real rhythm and word choice closely — weight that heavily.
 
 Rules:
 - Generate exactly 5 ideas.
@@ -10,7 +10,7 @@ Rules:
 - Each idea needs a ready-to-use hook line (the literal first sentence someone would say/write) — not a description of a hook, the actual hook text.
 - Vary the format across the 5: mix at least one listicle-style, one personal story/confession, one contrarian/hot-take, one "here's exactly how" tutorial-style, and one relatable-pain-point.
 - best_platform: pick the ONE platform (TikTok, Instagram, X, or Facebook) this specific angle would perform best on, and say why in one short phrase.
-- If the person's context (goals, interests, chart) is given, let it inform the ideas' subject matter where genuinely relevant — but the ideas should still feel personal and specific, not generic astrology or goal-tracking content.
+- HARD CAP on goals: if their goals are given as context, AT MOST 1 of the 5 ideas may draw on them. The other 4 must come from general life — opinions, observations, relatable everyday experiences, things happening in the world, hot takes, whatever's actually interesting — with zero connection to their stated goals. Goals should feel like background biography you glanced at once, not the lens every idea gets filtered through. A person's content is not just their goal list.
 - Never explain what you did. Output ONLY the JSON below, no markdown fences.
 
 Return strict JSON:
@@ -47,11 +47,13 @@ export default async function handler(req, res) {
 
     const contextLines = [
       profile?.name && `Name: ${profile.name}`,
-      profile?.core_goals && `Current goals: ${profile.core_goals}`,
+      profile?.content_voice_sample &&
+        `Their own actual past posts (match this rhythm/voice closely):\n${profile.content_voice_sample}`,
+      profile?.core_goals && `Their goals, background only — remember the hard cap, at most 1 of 5 ideas: ${profile.core_goals}`,
       seedTopic && `They specifically want ideas related to: ${seedTopic}`,
     ]
       .filter(Boolean)
-      .join("\n");
+      .join("\n\n");
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
     let completion;

@@ -8,6 +8,7 @@ Voice for the actual generated content (script, caption, post) — this matters 
 - Confident and direct, not hype-y. Real opinions read better than manufactured excitement.
 - Plain, spoken language — contractions, short sentences, the way someone actually talks, not how a brand account writes.
 - DO NOT default to a "here's my problem, here's the solution" arc just because that's a common content pattern. Look at what the brain dump actually is: if it's a reflection, an opinion, something they're processing, or just a topic that affects them that they want to talk about — let the content BE that. A thoughtful take doesn't need a manufactured struggle-then-fix structure bolted onto it. Match the actual shape of what they said, don't force it into a template.
+- If a voice sample (their own actual past posts) is given in context, match its real rhythm and word choice closely — that's the single best signal available for how this person actually sounds, weight it heavily.
 
 Hard rules:
 - Strip all filler, setups, throat-clearing, and long intros.
@@ -15,10 +16,20 @@ Hard rules:
 - instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Short, punchy first line (gets cut off after ~125 chars so front-load it), a line break, then 1-3 more lines. Include exactly 5 relevant hashtags at the end, mix of broad and niche.
 - x_post: a single standalone tweet — NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Minimum 140 characters (X's real limit is 280, so use the space — don't write something short and padded to hit the minimum, actually say something with it). Hook-first still applies: the opening should stop a scroll.
 - facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that.
-- execution_steps: exactly 4-6 steps, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision. Bad: "Film the video." Good: "Say hook line 1 straight into the camera, no retakes unless you flub words." Include the actual posting-time recommendation as one step (e.g. "Post between 6-9pm local time for best reach") and one step about early engagement (e.g. "Reply to the first 5 comments within 30 min — this signals the algorithm to push it further").
+- execution_steps: an OBJECT keyed by platform (tiktok, instagram, x, facebook), NOT one shared list — the actual mechanics of posting differ enough per platform that a single generic checklist doesn't serve any of them well. 3-4 steps per platform, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision.
+  - tiktok: filming/delivery mechanics. Bad: "Film the video." Good: "Say hook line straight into the camera, no retakes unless you flub words." Include one step naming a concrete posting-time window and one about replying to early comments fast.
+  - instagram: caption + cover frame + cross-posting mechanics specifically (e.g. "Pick the cover frame where your face is clearest, not the first frame by default," "Post to Stories with a poll sticker linking to the main post within the hour").
+  - x: timing and reply-engagement mechanics specific to X (e.g. "Post as plain text, no link in the body — links get suppressed, put it in a reply instead," "Reply to your own post once within 10 min with one added detail to bump it back into feeds").
+  - facebook: community/group mechanics specific to FB (e.g. "Share into 1-2 relevant Groups you're actually a member of, not just your profile," "Ask the literal question from the post again in a comment to seed replies").
 - core_message and engagement_tip: write these like a friend texting quick honest notes, not a strategist's memo — direct, warm, a little personality. "this hook's solid but the ending's flat" beats "the concluding statement could be strengthened."
 - engagement_tip: one sentence of the single highest-leverage thing about THIS specific piece — could be about the hook strength, format choice, timing, or a concrete CTA to add. Not generic advice.
-- If the person's context (name, goals, natal chart) is given, let it inform tone/voice ONLY if genuinely useful. Never mention astrology explicitly in the actual content output, and never force a connection to their goals if it doesn't fit.
+- If the person's context (name, goals, natal chart) is given, DO NOT force a connection to their goals — most pieces of content have nothing to do with someone's savings goal or degree, and reaching for that connection anyway is exactly the kind of forced, ever-present framing to avoid. Only let goals/chart context inform tone if it's genuinely and obviously relevant to what they actually brain-dumped about; otherwise ignore that part of the context entirely.
+- hook_variants: 2 ALTERNATE opening lines for the tiktok_reels_script — genuinely different angles on the same idea (different emotional entry point, different specific detail, different question), not just a reworded version of the same hook. These are real options to A/B test, not filler.
+- algorithm_boost: exactly 3 items, each tied to ONE specific, real, well-documented platform signal — not vague hype, not fabricated "trending sound" claims (you don't have live trend data, never pretend to). Cover exactly these three signals, one each, specific to THIS piece:
+  1. Retention — will someone watch past the first 3 seconds? Point at the actual hook and say why it does or doesn't hold, or how to tighten it.
+  2. Shareability/saves — is there a specific line here someone would send to a friend, or save because it's useful? Name the actual line if there is one; if there isn't, say what's missing.
+  3. Comments — does anything here genuinely invite a reply (a real question, a take people might disagree with, something relatable enough to say "same")? Point at the specific moment, or say what to add.
+  Each item: 1-2 sentences, direct, no hedging, honest if something's weak rather than inflating it. Never claim or imply this content WILL go viral — frame as "these are the real signals platforms weight," not a guarantee.
 - Never explain what you did. Output ONLY the JSON described below, nothing else, no markdown fences.
 
 Return strict JSON with this exact shape:
@@ -28,8 +39,19 @@ Return strict JSON with this exact shape:
   "instagram_caption": "string with line breaks, ending in exactly 5 hashtags",
   "x_post": "string, single tweet, minimum 140 characters, not numbered, not a thread",
   "facebook_post": "string, max 80 words, conversational",
-  "execution_steps": ["step 1", "step 2", "..."],
+  "execution_steps": {
+    "tiktok": ["step 1", "step 2", "step 3"],
+    "instagram": ["step 1", "step 2", "step 3"],
+    "x": ["step 1", "step 2", "step 3"],
+    "facebook": ["step 1", "step 2", "step 3"]
+  },
   "engagement_tip": "one sentence, specific to this piece",
+  "hook_variants": ["alternate hook 1", "alternate hook 2"],
+  "algorithm_boost": [
+    { "signal": "Retention", "note": "..." },
+    { "signal": "Shareability", "note": "..." },
+    { "signal": "Comments", "note": "..." }
+  ],
   "word_count": <int, word count of tiktok_reels_script>
 }`;
 
@@ -68,12 +90,12 @@ export default async function handler(req, res) {
     const contextLines = profile
       ? [
           profile.name && `Name: ${profile.name}`,
-          profile.core_goals && `Current goals: ${profile.core_goals}`,
-          (profile.sun_sign || profile.moon_sign) &&
-            `Chart: Sun ${profile.sun_sign || "?"}, Moon ${profile.moon_sign || "?"}, Rising ${profile.rising_sign || "?"}`,
+          profile.content_voice_sample &&
+            `Their own actual past posts (match this rhythm/voice closely — this is the best real signal for how they sound):\n${profile.content_voice_sample}`,
+          profile.core_goals && `Background context only, do not force a connection: ${profile.core_goals}`,
         ]
           .filter(Boolean)
-          .join("\n")
+          .join("\n\n")
       : "";
 
     const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
@@ -84,11 +106,11 @@ export default async function handler(req, res) {
         reasoning_effort: "low",
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          ...(contextLines ? [{ role: "system", content: `Creator context (use subtly, never state directly):\n${contextLines}` }] : []),
+          ...(contextLines ? [{ role: "system", content: `Creator context:\n${contextLines}` }] : []),
           { role: "user", content: brainDump },
         ],
         temperature: 0.8,
-        max_tokens: 1600,
+        max_tokens: 2200,
         response_format: { type: "json_object" },
       });
     } catch (err) {

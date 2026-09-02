@@ -26,15 +26,13 @@ export default function ContentCoach({ profile }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          message: `Content coaching question (they're on the content creation page, not general life coaching): ${text}`,
+          message: `Content coaching question (they're on the content creation page, not general life coaching). Important: don't default to suggestions centered on their goals — most content ideas should come from general life, opinions, and observations that have nothing to do with their goal list. Their question: ${text}`,
           context: profile
             ? {
                 name: profile.name,
                 pronoun: profile.pronoun,
                 goals: profile.core_goals,
-                sun: profile.sun_sign,
-                moon: profile.moon_sign,
-                rising: profile.rising_sign,
+                voice_sample: profile.content_voice_sample,
               }
             : undefined,
         }),
