@@ -202,9 +202,9 @@ export default function ContentQueue({ profile, refreshKey }) {
                 <button
                   type="button"
                   onClick={() => setExpandedId(expandedId === s.id ? null : s.id)}
-                  className="text-left text-sm text-cream flex-1 line-clamp-2"
+                  className="text-left text-sm text-cream flex-1"
                 >
-                  {s.raw_brain_dump?.slice(0, 80) || "(no source text)"}
+                  {s.raw_brain_dump || "(no source text)"}
                 </button>
                 <button
                   type="button"

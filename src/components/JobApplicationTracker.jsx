@@ -193,8 +193,8 @@ export default function JobApplicationTracker({ profile }) {
                 <div key={app.id} className="py-2.5 flex flex-col gap-1.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm text-cream truncate">{app.role}</p>
-                      <p className="text-xs text-muted truncate">
+                      <p className="text-sm text-cream">{app.role}</p>
+                      <p className="text-xs text-muted">
                         {app.company}
                         {app.expected_salary ? ` · $${Number(app.expected_salary).toLocaleString()}` : ""}
                       </p>

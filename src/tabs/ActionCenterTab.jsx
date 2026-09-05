@@ -4,7 +4,7 @@ import PrimaryAction from "../components/PrimaryAction.jsx";
 import QuickActions from "../components/QuickActions.jsx";
 import CoachResponse from "../components/CoachResponse.jsx";
 import MicroTaskList from "../components/MicroTaskList.jsx";
-import { extractStepsFromReply, truncateForTaskList } from "../lib/extractSteps.js";
+import { extractStepsFromReply } from "../lib/extractSteps.js";
 import { listGoals, listJobApplications } from "../lib/db.js";
 import { summarizeGoalsProgress } from "../lib/goalProgress.js";
 
@@ -168,7 +168,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
       return;
     }
     setTaskError("");
-    const text = truncateForTaskList(step);
+    const text = step;
     await handleTaskChange([...tasks, { text, done: false }]);
     setAddedSteps((prev) => ({ ...prev, [index]: true }));
   }
@@ -201,10 +201,10 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
                 type="button"
                 disabled={addedSteps[i] || tasks.length >= 3}
                 onClick={() => addSuggestedStep(step, i)}
-                className="flex items-center gap-2 text-left text-sm px-3 py-1.5 rounded-full border border-line hover:border-clay text-muted hover:text-cream transition-colors disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted"
+                className="flex items-start gap-2 text-left text-sm px-3 py-1.5 rounded-2xl border border-line hover:border-clay text-muted hover:text-cream transition-colors disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted"
               >
-                {addedSteps[i] ? <Check size={12} className="text-clay shrink-0" /> : <Plus size={12} className="shrink-0" />}
-                <span className="truncate">{step}</span>
+                {addedSteps[i] ? <Check size={12} className="text-clay shrink-0 mt-0.5" /> : <Plus size={12} className="shrink-0 mt-0.5" />}
+                <span>{step}</span>
               </button>
             ))}
           </div>

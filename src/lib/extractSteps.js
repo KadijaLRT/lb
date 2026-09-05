@@ -34,13 +34,3 @@ export function extractStepsFromReply(text) {
 function dedupe(arr) {
   return [...new Set(arr)];
 }
-
-// MicroTaskList items should stay short (it's a glanceable checklist, not
-// a notes app) — truncate long candidates at a word boundary rather than
-// mid-word.
-export function truncateForTaskList(text) {
-  if (text.length <= MAX_TASK_LENGTH) return text;
-  const cut = text.slice(0, MAX_TASK_LENGTH);
-  const lastSpace = cut.lastIndexOf(" ");
-  return (lastSpace > 40 ? cut.slice(0, lastSpace) : cut) + "…";
-}

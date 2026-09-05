@@ -1,5 +1,83 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Coach voice tightened further — structural fixes, not just more rules
+Couldn't test live output in this environment (no API access here), so
+diagnosed from the prompt itself and fixed three concrete mechanisms
+rather than adding another abstract "sound more natural" instruction:
+
+- **Context was being handed to the model as raw JSON** —
+  `{"name":"K","voice_sample":"...",...}`. That's an inherently
+  machine-shaped signal, not "here's how a person talks." Rewrote it into
+  plain sentences ("Their name is K... here's a real sample of how they
+  write, match this voice closely: ...") — same information, but framed
+  as instructions to a person instead of data to parse.
+- **Named the actual robotic tics, not just banned phrases**: restating
+  what the person just said back to them before responding, hedge-openers
+  ("I think maybe..."), bow-tied summary closers ("Overall, the key
+  is..."), narrating helpfulness ("Here's what I'd suggest..." / "I hope
+  this helps!"). These patterns are what make AI replies read as AI
+  replies more than any individual word choice, and the old prompt never
+  called them out directly.
+- **Added a concrete before/after example** contrasting a robotic reply
+  against a real one for the same message, so there's an actual model to
+  match rather than only abstract rules to follow.
+- Bumped temperature 0.7 → 0.8 — low temperature is part of why model
+  output converges on safe, average phrasing; a bit more randomness helps
+  now that the structural guardrails (topic, jargon, length) are doing
+  more of the real work.
+
+## Removed all text truncation app-wide, not just the one spot
+Full sweep: every place text was cut off, in any form, anywhere in the
+app.
+- **Goal titles** (`GoalsTracker.jsx`, both the import-preview and the
+  regular goal card) — removed `truncate`, adjusted the goal-card icon
+  row to `items-start` so a wrapped multi-line title doesn't misalign.
+- **Job application role/company/salary** (`JobApplicationTracker.jsx`) —
+  removed `truncate` from both lines.
+- **Suggested micro-task step chips** (`ActionCenterTab.jsx`) — removed
+  `truncate`, adjusted the pill shape (`rounded-full` → `rounded-2xl`) and
+  icon alignment so multi-line suggestions display cleanly.
+- **Saved micro-task text itself** — this was actually the biggest one:
+  `truncateForTaskList()` was shortening step text *before saving* to your
+  daily checklist, not just a display clip. Removed that call entirely —
+  full text now saved and shown, no exception left for this one. The
+  now-fully-unused `truncateAtWord`/`truncateForTaskList` helpers were
+  removed from `extractSteps.js`.
+- Confirmed the earlier `ContentQueue.jsx`/`PostingCalendar.jsx` fixes
+  hold, and re-swept the whole `src/` tree for any remaining
+  `truncate`/`line-clamp` classes or display-text `.slice(0, N)` calls —
+  zero remain. (Two harmless non-matches: an array `.slice(0, 5)` limiting
+  suggestion *count*, and `.slice(0, -1)` popping the last chat message on
+  error — neither truncates text content.)
+- Scrollable containers (`max-h-* overflow-y-auto` on transaction lists,
+  chat history, the queue, the settings modal) were left as-is — those
+  scroll rather than clip, no text is ever hidden or lost, just contained
+  in a panel you scroll through.
+
+## Removed truncation entirely, per direct feedback
+Last round's word-boundary fix wasn't what was wanted — no cutting at all.
+Reverted all three spots to show the complete `raw_brain_dump` text with
+no truncation. Also removed CSS-based clamping (`line-clamp-2` and
+`truncate`) that was quietly doing the same cutting visually even after
+the JS-level fix — a JS truncation fix alone wouldn't have been enough,
+since Tailwind's `line-clamp`/`truncate` classes clip independently of
+whatever text is actually passed in. The posted-items row now wraps to
+multiple lines instead of forcing single-line ellipsis, with the
+platform checkmarks staying aligned to the top of the row.
+
+## Mid-word text truncation bug fixed (3 places)
+Real bug from your screenshot: queue item previews used plain
+`.slice(0, 80)` with no word-boundary awareness, so long text got hard-cut
+mid-word with no ellipsis ("...we talked it ou"). Generalized the
+word-boundary truncator that already existed for micro-tasks
+(`truncateForTaskList` → `truncateAtWord`, reusable now) and applied it to
+all three places this bug existed: the queue list preview, and two spots
+in the posting tracker (pending and posted lists). Verified against the
+exact text from the screenshot — now cuts at "...we talked it…" instead of
+"...we talked it ou". Swept the rest of the codebase for the same
+`.slice(0, N)` pattern — remaining instances are all truncating raw error
+text for debug messages, not user-facing content, so left alone.
+
 ## Found the real cause of the "talking to a robot" feeling — voice sample wasn't wired to the coach
 The voice-sample mechanism already existed (built for Content when you
 gave me your Twitter link) but only ever reached Content generation —

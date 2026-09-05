@@ -120,7 +120,7 @@ export default function PostingCalendar({ profile, refreshKey }) {
             )}
             {unposted.map((s) => (
               <div key={s.id} className="border border-line rounded-xl p-3 flex flex-col gap-2">
-                <p className="text-sm text-cream line-clamp-2">{s.raw_brain_dump?.slice(0, 90) || "(no source text)"}</p>
+                <p className="text-sm text-cream">{s.raw_brain_dump || "(no source text)"}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {platformsFor(s).map((p) => {
                     const isPosted = !!s.posted_at?.[p.key];
@@ -150,9 +150,9 @@ export default function PostingCalendar({ profile, refreshKey }) {
               <span className="text-xs uppercase tracking-[0.2em] text-muted">Posted ({fullyPosted.length})</span>
               <div className="flex flex-col gap-1.5">
                 {fullyPosted.map((s) => (
-                  <div key={s.id} className="flex items-center justify-between text-xs text-muted">
-                    <span className="truncate flex-1">{s.raw_brain_dump?.slice(0, 60) || "(no source text)"}</span>
-                    <span className="flex gap-1 shrink-0 ml-2">
+                  <div key={s.id} className="flex items-start justify-between gap-2 text-xs text-muted">
+                    <span className="flex-1">{s.raw_brain_dump || "(no source text)"}</span>
+                    <span className="flex gap-1 shrink-0 pt-0.5">
                       {platformsFor(s).map((p) => (
                         <button
                           key={p.key}

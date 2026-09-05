@@ -266,7 +266,7 @@ export default function GoalsTracker({ profile }) {
               {importSuggestions.map((s, i) => (
                 <div key={i} className="flex flex-col gap-1.5 border-b border-line pb-2 last:border-0">
                   <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-cream truncate">{s.title}</span>
+                    <span className="text-sm text-cream">{s.title}</span>
                     <button type="button" onClick={() => removeSuggestion(i)} className="text-muted hover:text-fire shrink-0">
                       <X size={13} />
                     </button>
@@ -514,9 +514,9 @@ export default function GoalsTracker({ profile }) {
                 return (
                   <div key={goal.id} className="border border-line rounded-xl p-3 flex flex-col gap-2">
                     <div className="flex items-start justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        <Icon size={14} className="text-clay shrink-0" />
-                        <span className="text-sm text-cream truncate">{goal.title}</span>
+                      <div className="flex items-start gap-2 min-w-0">
+                        <Icon size={14} className="text-clay shrink-0 mt-0.5" />
+                        <span className="text-sm text-cream">{goal.title}</span>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         <button type="button" onClick={() => startEdit(goal)} className="text-muted hover:text-clay">
