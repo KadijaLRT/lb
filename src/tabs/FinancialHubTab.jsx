@@ -36,7 +36,7 @@ export default function FinancialHubTab({ profile, account, weekSpend, onLogExpe
       <ImpulsePause
         context={
           profile
-            ? { sun: profile.sun_sign, moon: profile.moon_sign, rising: profile.rising_sign }
+            ? { sun: profile.sun_sign, moon: profile.moon_sign, rising: profile.rising_sign, voice_sample: profile.content_voice_sample }
             : undefined
         }
       />

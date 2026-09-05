@@ -6,6 +6,12 @@ import { parseNatalLongitudes, parseHousePlacements, parseNatalAspects } from ".
 const FIELDS = [
   { key: "name", label: "Name", type: "text", section: "About you" },
   { key: "pronoun", label: "Pronoun", type: "text", section: "About you" },
+  {
+    key: "content_voice_sample",
+    label: "Paste a few things you'd actually text or post (optional) — the coach and everything else in the app will talk more like you actually talk, not a generic assistant",
+    type: "textarea",
+    section: "About you",
+  },
   { key: "birth_date", label: "Birth date", type: "date", section: "Birth data" },
   { key: "birth_time", label: "Birth time", type: "time", section: "Birth data" },
   { key: "birth_location", label: "Birth location", type: "text", section: "Birth data" },
@@ -17,12 +23,6 @@ const FIELDS = [
     label: "Full natal chart (paste it — Sun/Moon/Rising are pulled from this automatically, no need to enter them separately)",
     type: "textarea",
     section: "Astrology",
-  },
-  {
-    key: "content_voice_sample",
-    label: "Paste a few of your own past posts/tweets (optional) — generated content will match how you actually sound",
-    type: "textarea",
-    section: "Content",
   },
 ];
 

@@ -1,5 +1,69 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Found the real cause of the "talking to a robot" feeling — voice sample wasn't wired to the coach
+The voice-sample mechanism already existed (built for Content when you
+gave me your Twitter link) but only ever reached Content generation —
+the main coach, which is what most of the app's conversation actually
+runs through, never received it at all. That's the real gap, not
+anything about dialect or phrasing rules.
+
+- Added an explicit "match this closely, it's the single most important
+  signal" instruction to `coach.js`'s system prompt.
+- Wired `voice_sample` into the main coach context in `ActionCenterTab.jsx`
+  (every quick-action prompt, every typed message, "Turn into script" all
+  route through this) and `ImpulsePause.jsx`'s check-in — both were
+  missing it entirely.
+- Relabeled the Settings field so it's clear it drives the whole app, not
+  just generated content, and moved it up to "About you" since it's no
+  longer content-specific.
+
+Didn't build a "sound more Black/AAVE" feature by pattern-matching social
+media — that would mean generating a generic dialect performance from
+strangers' posts rather than actually sounding like *you*, and flattens
+real speech into a stereotype. The paste-your-own-writing mechanism is the
+honest fix: it makes the coach match your specific, actual voice, which is
+also just a better fix in general, not only for this concern.
+
+## Full "Once-and-Done" + "Continuous" bug checklist audit
+Went through both categories from the standard release-gate/regression
+checklist against the actual codebase.
+
+**Fixed:**
+- **Stale `.env.example` docs** — referenced `/api/plaid/*` and
+  `astrocartography.js`, both deleted months ago. Fixed the comments.
+- **Race condition, `AstroSnapshot.jsx`**: refetches on every
+  `natalChartNotes` change with no cancellation guard. Since `transits.js`
+  now calls Groq (variable latency, no longer instant), two rapid Settings
+  edits could resolve out of order and show stale data. Added a proper
+  `cancelled` flag with cleanup.
+
+**Checked and confirmed NOT a bug (with the actual reasoning, not just "seems fine"):**
+- **Hardcoded credentials**: none in client code — verified `GROQ_API_KEY`/
+  `SUPABASE_SERVICE_ROLE_KEY` never appear in `src/`.
+- **BOLA (Broken Object-Level Authorization)**: real gap technically —
+  RLS policies are `using (true)` (allow-all) and queries don't filter by
+  `user_id`. But this is a deliberately single-user, no-login app (already
+  documented at the top of `schema.sql`) — there's no second user to
+  exploit it against. Real risk only if the URL is ever shared/discovered;
+  worth remembering if this ever becomes multi-user.
+- **Session/token expiry**: no auth session exists to expire, consistent
+  with the single-user design.
+- **Dark mode**: no system dark-mode toggle handling exists — one fixed
+  palette always. Not "broken," just not responsive to the OS setting.
+- **Font scaling**: no fixed-height containers holding user-facing text;
+  the only fixed-size elements are icon-only buttons (SVGs don't reflow
+  with text-size preferences).
+- **Zero-state / FTUE**: `getOrCreateProfile()` and `getPrimaryAccount()`
+  both auto-provision on first load — a brand-new user never actually
+  hits a null profile/account for long.
+- **Infinite loading loops**: scanned every `setLoading(true)` — all have
+  a guaranteed `finally` or `.finally()` reset path.
+- **Background data wipe**: every text input is a properly controlled
+  React component (state-backed, not DOM-reliant) — verified no
+  value-without-onChange inputs exist.
+- **NPE risk**: spot-checked direct `profile.field` access patterns —
+  all are inside conditional guards one line up or an early-return check.
+
 ## Content tab fully collapsible + posted/unposted tracking integrated into the calendar
 - **`ContentCoach.jsx`** now collapses like every other section on the
   page (was the one exception, always fully expanded).

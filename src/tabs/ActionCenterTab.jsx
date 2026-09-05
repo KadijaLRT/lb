@@ -99,6 +99,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
                 goals: profile.core_goals,
                 natal_chart_notes: profile.natal_chart_notes,
                 goals_progress: goalsProgress || undefined,
+                voice_sample: profile.content_voice_sample || undefined,
               }
             : undefined,
         }),

@@ -13,6 +13,7 @@ export default function AstroSnapshot({ sun, moon, rising, natalChartNotes }) {
   const [error, setError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
     setError("");
     fetch("/api/transits", {
       method: "POST",
@@ -30,11 +31,17 @@ export default function AstroSnapshot({ sun, moon, rising, natalChartNotes }) {
         if (!r.ok) throw new Error((data && data.error) || `Server error (${r.status}): ${raw.slice(0, 300) || "empty response"}`);
         return data;
       })
-      .then(setTransit)
+      .then((data) => {
+        if (!cancelled) setTransit(data);
+      })
       .catch((err) => {
+        if (cancelled) return;
         setTransit(null);
         setError(err.message || "Couldn't load today's transits.");
       });
+    return () => {
+      cancelled = true;
+    };
   }, [sun, moon, rising, natalChartNotes]);
 
   const element = transit?.element || "water";
