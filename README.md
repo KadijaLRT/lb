@@ -1,5 +1,25 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Fixed real content fabrication, not a tone issue
+Your screenshot showed exactly what was wrong: you typed one sentence ("I
+deserve the most romantic man in the world"), and the generated script
+invented an entire specific wishlist you never said — love notes,
+flowers, "ranting about my day," "no games." That's not a voice problem,
+it's the model padding a short input to hit a word count by manufacturing
+specifics that aren't yours.
+
+Root cause: nothing in `content.js`'s prompt ever said the content had to
+stay grounded in what was actually written — there was a 130-word slot to
+fill and a one-line brain dump to work from, so it filled the gap.
+
+Added the actual missing rule, using this exact example directly in the
+prompt so it's unmistakable: never invent specific details, scenarios, or
+backstory not present in the source text. If the brain dump is short, the
+output should stay short too — a confident 15-word hook that's genuinely
+theirs beats 100 words of invented specifics. Also explicit now: only use
+a detail if the person actually stated it or it's a direct restatement of
+what they said, never a "plausible-sounding" invention.
+
 ## Coach voice tightened further — structural fixes, not just more rules
 Couldn't test live output in this environment (no API access here), so
 diagnosed from the prompt itself and fixed three concrete mechanisms
