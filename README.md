@@ -1,5 +1,42 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Cross-platform voice consistency — X and Facebook had the same problem as TikTok
+Your X post screenshot showed the exact same fabricated-anecdote and
+motivational-poster problems the TikTok script had ("A disagreement
+showed up, we didn't ghost or scroll past... No fluff, just real talk
+that actually fixes things"). The voice rules were written to apply
+globally, but each platform's hard rule was framed independently
+("Facebook rewards conversational tone," "X... hook-first still
+applies") without re-anchoring to the shared voice constraints — likely
+letting platform-native structure take priority over them for the
+longer-form outputs.
+
+Fixed by making it explicit and impossible to miss:
+- New rule stating directly that every voice constraint applies equally
+  to all four outputs, with an actual pre-output checklist ("did I invent
+  a detail? did I convert a general statement into a fake anecdote? did
+  I use a banned phrase?") that has to be checked against each of the four
+  individually, not just the first one written.
+- Called out specifically that longer-form platforms (X, Facebook) are
+  actually WHERE fabrication tends to sneak in most, since there's more
+  room to fill than a tight TikTok hook — the opposite of what you'd
+  assume, since TikTok was the one already tested.
+- Reinforced directly in the JSON schema description for each field too,
+  not just in the prose above it, so the constraint sits right where each
+  one is actually generated.
+
+## Root cause found: the last round's fixes were never actually shipped
+The fabrication fix, the "kill these specific phrases" rule, and the
+Settings voice-sample indicator were all written into the source last
+round — but the zip was never rebuilt and handed over after making them.
+You redeployed the version from before those changes existed, which is
+exactly why the same bug and the same missing indicator both showed up
+again. Confirmed this by checking your report that the "Saved — N words"
+message wasn't appearing anywhere — that's not a data problem, that
+message literally didn't exist in whatever was live. Verified all three
+fixes are genuinely present in this build before packaging it, so this
+zip is the first one that actually contains them.
+
 ## Fabrication fix from last round didn't cover a real gap — closed it
 Your new screenshot showed the fix from last time wasn't enough: it typed
 your general statement ("mature relationships mean fighting, then talking

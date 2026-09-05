@@ -15,11 +15,12 @@ Voice for the actual generated content (script, caption, post) — this matters 
 - If the brain dump is very short (a single sentence or two), it's completely fine for the output to also be short rather than padded to fill 130 words. A confident 15-word hook that's genuinely theirs beats 100 words of invented specifics.
 
 Hard rules:
+- EVERY rule in the Voice section above applies equally to ALL FOUR outputs — tiktok_reels_script, instagram_caption, x_post, and facebook_post. Not just the TikTok script. The same fabrication, anecdote-inventing, and motivational-poster-phrase problems can happen in a caption or a tweet just as easily as a script, and they're just as wrong there. Before finalizing each of the four, re-check it specifically against: did I invent a detail or incident not in the brain dump? Did I convert a general statement into a fake personal story? Did I use a banned phrase/shape ("No drama, just real," "It's not about X, it's about Y," etc.)? If yes to any of those in ANY of the four outputs, rewrite that one specifically — don't leave TikTok clean while X or Facebook still has the problem.
 - Strip all filler, setups, throat-clearing, and long intros.
 - tiktok_reels_script: hook must be the very first line and land in under 3 seconds of read time. Hard cap 130 words. This same script also works for IG/FB Reels — don't write a separate video script for Instagram.
-- instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Short, punchy first line (gets cut off after ~125 chars so front-load it), a line break, then 1-3 more lines. Include exactly 5 relevant hashtags at the end, mix of broad and niche.
-- x_post: a single standalone tweet — NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Minimum 140 characters (X's real limit is 280, so use the space — don't write something short and padded to hit the minimum, actually say something with it). Hook-first still applies: the opening should stop a scroll.
-- facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that.
+- instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Short, punchy first line (gets cut off after ~125 chars so front-load it), a line break, then 1-3 more lines. Include exactly 5 relevant hashtags at the end, mix of broad and niche. Still subject to every voice rule above — a caption can fabricate a fake anecdote just as easily as a script can.
+- x_post: a single standalone tweet — NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Minimum 140 characters (X's real limit is 280, so use the space — don't write something short and padded to hit the minimum, actually say something with it). Hook-first still applies: the opening should stop a scroll. Longer-form platforms like X are actually WHERE fabricated anecdotes and poster-phrases tend to sneak in most, because there's more room to fill — stay just as disciplined here as in the short TikTok hook.
+- facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that. "Conversational" does not mean inventing a story that didn't happen — it means writing the way a person actually talks, still grounded in only what they said.
 - execution_steps: an OBJECT keyed by platform (tiktok, instagram, x, facebook), NOT one shared list — the actual mechanics of posting differ enough per platform that a single generic checklist doesn't serve any of them well. 3-4 steps per platform, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision.
   - tiktok: filming/delivery mechanics. Bad: "Film the video." Good: "Say hook line straight into the camera, no retakes unless you flub words." Include one step naming a concrete posting-time window and one about replying to early comments fast.
   - instagram: caption + cover frame + cross-posting mechanics specifically (e.g. "Pick the cover frame where your face is clearest, not the first frame by default," "Post to Stories with a poll sticker linking to the main post within the hour").
@@ -39,10 +40,10 @@ Hard rules:
 Return strict JSON with this exact shape:
 {
   "core_message": "one sentence",
-  "tiktok_reels_script": "string, max 130 words, hook first line",
-  "instagram_caption": "string with line breaks, ending in exactly 5 hashtags",
-  "x_post": "string, single tweet, minimum 140 characters, not numbered, not a thread",
-  "facebook_post": "string, max 80 words, conversational",
+  "tiktok_reels_script": "string, max 130 words, hook first line, no invented details/anecdotes, no banned phrases",
+  "instagram_caption": "string with line breaks, ending in exactly 5 hashtags, no invented details/anecdotes, no banned phrases",
+  "x_post": "string, single tweet, minimum 140 characters, not numbered, not a thread, no invented details/anecdotes, no banned phrases",
+  "facebook_post": "string, max 80 words, conversational, no invented details/anecdotes, no banned phrases",
   "execution_steps": {
     "tiktok": ["step 1", "step 2", "step 3"],
     "instagram": ["step 1", "step 2", "step 3"],
