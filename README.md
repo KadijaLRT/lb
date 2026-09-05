@@ -1,5 +1,38 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Fabrication fix from last round didn't cover a real gap — closed it
+Your new screenshot showed the fix from last time wasn't enough: it typed
+your general statement ("mature relationships mean fighting, then talking
+it out") as if it were a specific personal story ("we fought, but we
+talked it out"), inventing an incident that never happened. The earlier
+fix addressed inventing *details* but not the model *converting a general
+opinion into a first-person anecdote* — a distinct failure mode. Added an
+explicit rule against that conversion, with this exact example.
+
+Also killed the specific recurring brochure phrases still showing up
+("No drama, just real," "That's how you grow," "It's not about X, it's
+about Y") by name — these are motivational-poster shapes, not something a
+person says out loud, and naming them directly is more effective than a
+general "sound natural" instruction.
+
+**Added visibility into whether a voice sample actually exists**: there
+was no way to confirm from the UI whether `content_voice_sample` was
+genuinely saved — same blind spot as the natal chart field before I built
+a live preview for that one. Settings now shows either "Saved — N words
+will be used to match your voice" or an explicit "Empty right now —
+without this, the coach and content default to plain generic phrasing."
+If output is still landing flat, check that line first — it's possible
+this is empty for this account, which would explain a lot.
+
+On the "not Black" part of the request specifically: deliberately did not
+add dialect/AAVE pattern-matching. That would mean the app deciding what
+a demographic "should" sound like and applying it as a formula — the same
+class of problem as generic robotic phrasing, just pointed a different
+direction, and it would override your actual real voice with an
+assumption about it. The prompt is now explicit: match the voice_sample
+if one exists; if none exists, write plainly rather than guessing at an
+identity or performing a dialect with no real sample to work from.
+
 ## Fixed real content fabrication, not a tone issue
 Your screenshot showed exactly what was wrong: you typed one sentence ("I
 deserve the most romantic man in the world"), and the generated script

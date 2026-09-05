@@ -135,6 +135,17 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
                 />
               )}
               {f.key === "natal_chart_notes" && <ChartParsePreview notes={form.natal_chart_notes} />}
+              {f.key === "content_voice_sample" &&
+                (form.content_voice_sample?.trim() ? (
+                  <p className="text-xs text-clay flex items-center gap-1.5 mt-1">
+                    <CheckCircle2 size={12} className="shrink-0" />
+                    Saved — {form.content_voice_sample.trim().split(/\s+/).length} words will be used to match your voice.
+                  </p>
+                ) : (
+                  <p className="text-xs text-muted italic mt-1">
+                    Empty right now — without this, the coach and content default to plain generic phrasing instead of sounding like you specifically.
+                  </p>
+                ))}
             </div>
           ))}
           {error && <p className="text-sm text-fire">{error}</p>}
