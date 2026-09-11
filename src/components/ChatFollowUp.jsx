@@ -3,9 +3,9 @@ import { Send, Loader2, MessagesSquare } from "lucide-react";
 import { listChatMessages, addChatMessage } from "../lib/db.js";
 
 // When contextKey is given, the conversation is loaded from and saved to
-// Supabase (scoped to that key — e.g. "career:2026-08-28").
-// Without one (scenario advice), it stays purely in-memory, matching the
-// fact that scenario readings themselves aren't saved either.
+// Supabase (scoped to that key — e.g. "career:2026-08-28"). Without a
+// contextKey (not currently used by any caller, but supported), it would
+// stay purely in-memory instead.
 export default function ChatFollowUp({ area, profile, priorReading, contextKey }) {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState([]);
@@ -17,6 +17,8 @@ export default function ChatFollowUp({ area, profile, priorReading, contextKey }
   useEffect(() => {
     if (!open || !contextKey || !profile?.id) return;
     setMessages([]);
+    setError("");
+    setInput("");
     setLoadingHistory(true);
     listChatMessages(profile.id, contextKey)
       .then((rows) => setMessages(rows.map((r) => ({ role: r.role, content: r.content }))))
@@ -78,7 +80,7 @@ export default function ChatFollowUp({ area, profile, priorReading, contextKey }
         className="self-start flex items-center gap-1.5 text-xs text-clay hover:underline"
       >
         <MessagesSquare size={12} />
-        Ask a follow-up
+        Talk about what's going on
       </button>
     );
   }
@@ -118,7 +120,7 @@ export default function ChatFollowUp({ area, profile, priorReading, contextKey }
               send();
             }
           }}
-          placeholder="Ask something about this…"
+          placeholder="What's on your mind, or ask about the reading…"
           disabled={loading}
           className="flex-1 bg-transparent border-b border-line focus:border-clay outline-none text-sm py-1 placeholder:text-muted/60 disabled:opacity-50"
         />

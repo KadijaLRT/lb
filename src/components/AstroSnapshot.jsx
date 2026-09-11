@@ -45,7 +45,8 @@ export default function AstroSnapshot({ sun, moon, rising, natalChartNotes }) {
   }, [sun, moon, rising, natalChartNotes]);
 
   const element = transit?.element || "water";
-  const vibe = transit?.vibe || (error ? null : sun || moon || rising ? "Loading…" : "Set your birth data to unlock daily transits.");
+  const hasAnyChartData = !!(sun || moon || rising || natalChartNotes);
+  const vibe = transit?.vibe || (error ? null : hasAnyChartData ? "Loading…" : "Set your birth data to unlock daily transits.");
 
   return (
     <div className="border border-line rounded-2xl p-4 flex flex-col gap-3">

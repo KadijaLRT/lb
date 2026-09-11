@@ -10,15 +10,24 @@ export default function TransactionsAccordion({ accountId, refreshKey }) {
 
   useEffect(() => {
     if (!open || !accountId) return;
+    let cancelled = false;
     setLoading(true);
     setError("");
     getTransactions(accountId)
-      .then(setTxns)
+      .then((data) => {
+        if (!cancelled) setTxns(data);
+      })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
         setError("Couldn't load transactions.");
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [open, accountId, refreshKey]);
 
   return (

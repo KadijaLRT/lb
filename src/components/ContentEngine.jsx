@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Mic, Loader2, Copy, Check, Zap, RefreshCw, TrendingUp } from "lucide-react";
 import IdeaGenerator from "./IdeaGenerator.jsx";
 
@@ -12,16 +12,29 @@ const TABS = [
 function CopyButton({ text }) {
   const [copied, setCopied] = useState(false);
   const [failed, setFailed] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   async function handleCopy() {
     try {
       await navigator.clipboard.writeText(text || "");
+      if (!mountedRef.current) return;
       setCopied(true);
       setFailed(false);
-      setTimeout(() => setCopied(false), 1500);
+      setTimeout(() => {
+        if (mountedRef.current) setCopied(false);
+      }, 1500);
     } catch {
+      if (!mountedRef.current) return;
       setFailed(true);
-      setTimeout(() => setFailed(false), 2000);
+      setTimeout(() => {
+        if (mountedRef.current) setFailed(false);
+      }, 2000);
     }
   }
 
@@ -47,6 +60,11 @@ function stepsForPlatform(executionSteps, platformKey) {
   return executionSteps[platformKey] || [];
 }
 
+function hashtagsForPlatform(hashtags, platformKey) {
+  if (!hashtags || typeof hashtags !== "object") return [];
+  return Array.isArray(hashtags[platformKey]) ? hashtags[platformKey] : [];
+}
+
 export default function ContentEngine({ profile, onSaved }) {
   const [dump, setDump] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,7 +76,7 @@ export default function ContentEngine({ profile, onSaved }) {
 
   async function transform(brainDumpOverride) {
     const text = brainDumpOverride ?? dump;
-    if (!text.trim()) return;
+    if (!text.trim() || loading) return; // guards against a second call firing while one's still in flight — e.g. clicking an idea card while the main button's generation hasn't resolved yet
     setLoading(true);
     setError("");
     setResult(null);
@@ -218,6 +236,19 @@ export default function ContentEngine({ profile, onSaved }) {
                 </div>
                 <p className="text-cream/90 text-sm whitespace-pre-wrap">{result.facebook_post}</p>
               </div>
+            )}
+
+            {hashtagsForPlatform(result.hashtags, tab).length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {hashtagsForPlatform(result.hashtags, tab).map((tag, i) => (
+                  <span key={i} className="text-xs text-clay bg-clay/10 px-2 py-0.5 rounded-full">
+                    {tag.startsWith("#") ? tag : `#${tag}`}
+                  </span>
+                ))}
+              </div>
+            )}
+            {result.hashtags && hashtagsForPlatform(result.hashtags, tab).length === 0 && (tab === "x" || tab === "facebook") && (
+              <p className="text-xs text-muted italic pt-1">No hashtags for this one — genuinely relevant tags are thin on {TABS.find((t) => t.key === tab)?.label}, and a forced one hurts more than it helps here.</p>
             )}
 
             {stepsForPlatform(result.execution_steps, tab).length > 0 && (

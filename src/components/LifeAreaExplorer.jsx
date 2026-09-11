@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Briefcase, Users, Heart, Wallet, RefreshCw, Loader2, Lightbulb, MessageCircleQuestion, X } from "lucide-react";
+import { Briefcase, Users, Heart, Wallet, RefreshCw, Loader2, Lightbulb } from "lucide-react";
 import { getInsight, saveInsight } from "../lib/db.js";
 import { localDateString } from "../lib/date.js";
 import ChatFollowUp from "./ChatFollowUp.jsx";
@@ -57,25 +57,12 @@ export default function LifeAreaExplorer({ profile }) {
   const [error, setError] = useState("");
   const today = localDateString();
 
-  const [scenarioOpen, setScenarioOpen] = useState(false);
-  const [scenarioText, setScenarioText] = useState("");
-  const [scenarioResult, setScenarioResult] = useState(null);
-  const [scenarioLoading, setScenarioLoading] = useState(false);
-  const [scenarioError, setScenarioError] = useState("");
-
   useEffect(() => {
     if (!profile?.id || content[active] !== undefined) return;
     getInsight(profile.id, active, today)
       .then((row) => setContent((c) => ({ ...c, [active]: row?.content ? parseStoredReading(row.content) : null })))
       .catch(() => setContent((c) => ({ ...c, [active]: null })));
   }, [active, profile?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset the scenario panel when switching areas — a situation answered
-  // under "Love" shouldn't linger when you tap over to "Finance."
-  useEffect(() => {
-    setScenarioResult(null);
-    setScenarioError("");
-  }, [active]);
 
   async function generate() {
     setLoading(true);
@@ -114,43 +101,6 @@ export default function LifeAreaExplorer({ profile }) {
     }
   }
 
-  async function askScenario() {
-    if (!scenarioText.trim()) return;
-    setScenarioLoading(true);
-    setScenarioError("");
-    setScenarioResult(null);
-    try {
-      const res = await fetch("/api/astrology", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ area: active, profile, for_date: today, scenario: scenarioText }),
-      });
-      const raw = await res.text();
-      let data;
-      try {
-        data = JSON.parse(raw);
-      } catch {
-        throw new Error(
-          res.ok
-            ? "Server returned an unreadable response."
-            : `Server error (${res.status}): ${raw.slice(0, 200) || "no details"}`
-        );
-      }
-      if (!res.ok) throw new Error(data.error || `Couldn't get advice (${res.status}).`);
-      if (!data.reading) {
-        setScenarioError("Got an empty response back. Try again.");
-        return;
-      }
-      // Deliberately not saved/cached — this is a one-off ask, not the
-      // day's fixed reading, so it shouldn't overwrite anything.
-      setScenarioResult({ reading: data.reading, action_ideas: data.action_ideas || [] });
-    } catch (err) {
-      setScenarioError(err.message || "Something went wrong.");
-    } finally {
-      setScenarioLoading(false);
-    }
-  }
-
   const current = content[active];
 
   return (
@@ -179,15 +129,12 @@ export default function LifeAreaExplorer({ profile }) {
       {current === undefined && <p className="text-sm text-muted">Loading…</p>}
 
       {current === null && (
-        <p className="text-sm text-muted italic">No reading yet for this area.</p>
+        <p className="text-sm text-muted italic">
+          No reading yet for this area — generate one below, or just start talking about what's on your mind in the chat underneath.
+        </p>
       )}
 
-      {current && (
-        <>
-          <ReadingBlock result={current} />
-          <ChatFollowUp area={active} profile={profile} priorReading={current.reading} contextKey={`${active}:${today}`} />
-        </>
-      )}
+      {current && <ReadingBlock result={current} />}
 
       {error && <p className="text-sm text-fire">{error}</p>}
 
@@ -201,62 +148,19 @@ export default function LifeAreaExplorer({ profile }) {
         {current ? "Regenerate for today" : "Generate today's reading"}
       </button>
 
-      <div className="pt-3 border-t border-line flex flex-col gap-3">
-        {!scenarioOpen ? (
-          <button
-            type="button"
-            onClick={() => setScenarioOpen(true)}
-            className="self-start flex items-center gap-1.5 text-sm text-clay hover:underline"
-          >
-            <MessageCircleQuestion size={14} />
-            Ask about a specific situation
-          </button>
-        ) : (
-          <>
-            <div className="flex items-center justify-between">
-              <span className="text-xs uppercase tracking-[0.2em] text-muted">
-                Describe what's going on ({AREAS.find((a) => a.key === active)?.label})
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setScenarioOpen(false);
-                  setScenarioText("");
-                  setScenarioResult(null);
-                  setScenarioError("");
-                }}
-                className="text-muted hover:text-cream"
-              >
-                <X size={14} />
-              </button>
-            </div>
-            <textarea
-              value={scenarioText}
-              onChange={(e) => setScenarioText(e.target.value)}
-              rows={3}
-              placeholder="e.g. 'Deciding whether to take a job offer that pays more but feels less stable' or 'Trying to figure out why a friendship's felt off lately'"
-              className="w-full bg-transparent border border-line rounded-xl p-3 text-sm text-cream placeholder:text-muted/60 outline-none focus:border-clay resize-none"
-            />
-            <button
-              type="button"
-              onClick={askScenario}
-              disabled={scenarioLoading || !scenarioText.trim()}
-              className="self-start px-4 py-1.5 rounded-full bg-clay text-ink text-sm font-medium disabled:opacity-40 flex items-center gap-2"
-            >
-              {scenarioLoading && <Loader2 size={12} className="animate-spin" />}
-              {scenarioLoading ? "Thinking…" : "Get advice"}
-            </button>
-
-            {scenarioError && <p className="text-sm text-fire">{scenarioError}</p>}
-            {scenarioResult && (
-              <div className="pt-2 border-t border-line flex flex-col gap-3">
-                <ReadingBlock result={scenarioResult} />
-                <ChatFollowUp key={scenarioResult.reading} area={active} profile={profile} priorReading={scenarioResult.reading} />
-              </div>
-            )}
-          </>
-        )}
-      </div>
+      {/*
+        Merged "Ask about a specific situation" into this — they were the
+        same feature wearing two different UIs (a generate-then-chat
+        two-step vs. a chat that only appeared after a reading existed).
+        Now there's just one persistent conversation per area, always
+        available whether or not a daily reading exists yet. Whether your
+        first message is "tell me more" or a real situation you want to
+        talk through, it's the same chat — astrology-chat.js's system
+        prompt reacts differently to a first message (like a friend hearing
+        news) vs. a continuing one, so the tone difference that used to
+        come from two separate code paths now comes from one, correctly.
+      */}
+      <ChatFollowUp area={active} profile={profile} priorReading={current?.reading} contextKey={`${active}:${today}`} />
     </div>
   );
 }

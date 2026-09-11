@@ -1,5 +1,335 @@
 # Kadija — Life Blueprint (Phase 1 MVP)
 
+## Finance — line-by-line audit, 4 real bugs found and fixed
+Went through `FinancialHubTab.jsx`, `ExpenseModal.jsx`,
+`JobApplicationTracker.jsx`, `TransactionsAccordion.jsx`,
+`SpendingTrend.jsx`, `FinancePulse.jsx`, `ImpulsePause.jsx`, and every
+Finance-related `db.js` function.
+
+1. **`ExpenseModal.jsx` silently did nothing on invalid input.** The
+   submit button's disabled check only looked at whether the amount
+   field was non-empty, not whether it actually parsed to a valid
+   positive number — typing "abc," "0," or a negative number left the
+   button looking active but clicking it did nothing, with zero
+   explanation. Fixed to show a real error message. Verified against
+   empty, garbage text, zero, negative, and valid inputs.
+2. **Security gap in `JobApplicationTracker.jsx`**: the external job
+   posting link used `rel="noreferrer"` alone on a `target="_blank"` link
+   to user-supplied content. While current major browsers largely treat
+   `noreferrer` as implying `noopener` protection, that's not guaranteed
+   behavior to rely on implicitly — the correct, explicit practice is
+   both attributes together. Fixed. Swept the whole app for the same
+   pattern; this was the only instance.
+3. **Missing fetch-cancellation guards** in `JobApplicationTracker.jsx`
+   and `TransactionsAccordion.jsx` — same class of bug fixed in
+   `AstroSnapshot.jsx` previously, just hadn't been applied here yet. The
+   transactions case is the more realistic trigger of the two: its
+   `refreshKey` bumps every time an expense is logged, so a user logging
+   several expenses quickly while the panel is open is a real scenario
+   for overlapping fetches, not just a narrow edge case. Fixed both.
+
+**Verified consistent, not a bug**: `getWeekSpend` (drives the "safe to
+spend" number) and `getWeeklySpendTrend` (drives the chart) both use
+identical rolling-7-day-window logic — traced the bucketing loop itself
+to confirm each transaction lands in the correct week bucket.
+
+**Confirmed NOT bugs**: the `?.total.toFixed(0) ?? 0` chain in
+`SpendingTrend.jsx` looked risky at a glance but is actually safe — JS
+optional chaining short-circuits the *entire* subsequent chain when the
+left side is nullish, not just the immediate property access, so this
+never calls `.toFixed` on `undefined`. Also re-verified the retry-on-error
+fix and the zero-budget guard from earlier rounds are genuinely present
+in this codebase.
+
+## Blueprint — line-by-line audit, 6 real bugs found and fixed
+Went through `BlueprintTab.jsx`, `AstroSnapshot.jsx`, `SettingsModal.jsx`,
+`GoalsTracker.jsx`, `ChatFollowUp.jsx`, and every Blueprint-related
+`db.js` function. This closes out the full four-tab audit.
+
+1. **`AstroSnapshot.jsx`'s loading-state text only checked
+   `sun || moon || rising`, not `natalChartNotes`.** We've seen directly
+   in this conversation that chart-text parsing can fail for different
+   formats even when `natal_chart_notes` is genuinely present — a user in
+   that exact situation would see "Set your birth data..." as a loading
+   placeholder while an API call that might return a fully personalized
+   result was still in flight. Fixed to check all four signals.
+2. **`SettingsModal.jsx`: closing without saving didn't discard unsaved
+   edits.** Form state only re-synced with the real profile after a
+   successful save — closing via the X button left it untouched, so
+   reopening later silently showed an abandoned draft instead of your
+   actual saved values. Fixed with an explicit `handleClose` that resets
+   the form before closing. Verified directly with a simulation.
+3. **Bonus fix on the same line**: a garbage numeric string in a
+   number-type field could coerce to `NaN` and get sent in the save
+   payload as-is. Added an `Number.isFinite` guard alongside the existing
+   coercion.
+4. **`GoalsTracker.jsx`'s `logAmount` had zero race protection** — the
+   same double-click race class fixed multiple times elsewhere in this
+   audit, here on the "Log payment/deposit" buttons. Fixed with per-goal
+   busy tracking.
+5. **`GoalsTracker.jsx`'s `confirmImport` lost track of partial
+   successes.** If importing 5 goals and the 3rd failed, the 2 that
+   already succeeded were genuinely saved to the database but never
+   reflected in local state or removed from the retry list — verified
+   this exact scenario with a direct simulation before and after the fix.
+   Now correctly shows what succeeded and lets you retry only what
+   failed.
+6. **`ChatFollowUp.jsx`: switching Go Deeper areas correctly cleared the
+   message history but left stale input text and error messages behind.**
+   A half-typed message or a lingering error from a failed send in one
+   area would incorrectly bleed into a completely different area's chat
+   panel. Fixed to reset both alongside the message reset.
+
+**Confirmed NOT bugs**: Core Goals' index-based list keys (safe — the
+whole list regenerates from one source string every time, never
+selectively mutated); a suspected concurrent-profile-overwrite risk in
+Settings (traced every `setProfile` call site in the app — only two
+exist, neither poses the risk); `ChatFollowUp`'s message-list index keys
+(safe — messages are only ever appended or removed from the end, never
+the middle, unlike the earlier `MicroTaskList` case); its `send()`
+function's race protection (already correctly guarded via disabled UI
+state plus an internal check); and its fire-and-forget message-save calls
+(correct pattern — a pure side effect with no `setState`-after-unmount
+risk).
+
+## Real backend fix for the four race conditions found in the audit
+The frontend busy-flags added during the audit only protect against a
+race WITHIN one browser tab — they do nothing against the same user on
+two devices, a retried request, or any client that isn't running this
+app's exact JS. The actual fix is at the database layer, where Postgres
+can guarantee true atomicity regardless of what's calling it.
+
+Added four Postgres functions to `schema.sql` — **run the migration** —
+each moving a read-modify-write operation that used to round-trip through
+the client entirely into one atomic database statement:
+
+- `increment_goal_amount` — fixes the goal payment/deposit race. Two
+  concurrent calls to `current_amount = current_amount + delta` against
+  the same row are serialized by Postgres's own row locking; neither can
+  be silently lost, no matter how many clients are hitting it.
+- `cycle_script_status` — fixes the content-queue status-cycle race. The
+  next status is computed via a `CASE` expression reading the row's OWN
+  current value at update time, never a value supplied by the client, so
+  it can't desync from reality.
+- `toggle_script_platform_posted` — fixes the more serious posting-tracker
+  race (two DIFFERENT platform checkmarks on the same item, both reading
+  stale data). Uses `SELECT ... FOR UPDATE` to lock the row for the
+  duration of the toggle, so two concurrent calls can never clobber each
+  other's write.
+- `append_micro_task` — fixes the suggested-step race in Action Center.
+  Uses `INSERT ... ON CONFLICT DO UPDATE` to handle both "today's row
+  doesn't exist yet" and "append to the existing array" as one atomic
+  upsert.
+
+Wired all four all the way through: new `db.js` functions
+(`incrementGoalAmount`, `cycleScriptStatus`, `appendMicroTask`, and a
+simplified `toggleScriptPlatformPosted` that no longer needs the client to
+pass its current state), a new `addMicroTask` method threaded through
+`useKadijaData.js` → `App.jsx` → `ActionCenterTab.jsx`, and updated call
+sites in `GoalsTracker.jsx`, `ContentQueue.jsx`, and `PostingCalendar.jsx`.
+The frontend busy-flags stay in place too — they're still worth it for
+the UX (visibly disabling a button while its action is in flight), just
+no longer the only thing protecting data integrity.
+
+**Honest limitation**: I verified all four functions by careful manual
+tracing against documented Postgres/PL-pgSQL behavior (table row types,
+`FOUND`, `RETURNING INTO`, `FOR UPDATE` locking, jsonb operators,
+`ON CONFLICT DO UPDATE`) rather than live execution — this sandbox has no
+network access to install Postgres or reach a real instance to test
+against. Worth running once in your Supabase SQL editor to confirm before
+fully trusting it in production. Did fully verify the *application-level*
+wiring, though: confirmed every old function name/call site was replaced
+consistently with no stragglers, and the app builds cleanly with the new
+call chain end to end.
+
+## Full four-tab audit complete
+Action Center (3 bugs), Content (6 bugs), Finance (4 bugs), Blueprint (6
+bugs) — 19 real bugs found and fixed across the whole app, each verified
+by tracing the actual code path or direct simulation rather than assumed.
+Also confirmed a consistent pattern throughout: every `db.js` write
+function is a blind overwrite with zero server-side concurrency
+protection, which is why the frontend race-condition guards added
+throughout this audit were genuinely necessary, not defensive
+overkill.
+
+## Content — line-by-line audit, 6 real bugs found and fixed
+Went through `ContentEngineTab.jsx`, `ContentEngine.jsx`, `IdeaGenerator.jsx`,
+`ContentQueue.jsx`, `PostingCalendar.jsx`, and the relevant `db.js`
+functions, verifying each suspected issue by tracing the actual code path.
+
+1. **`ContentEngine.jsx`'s `transform()` had no re-entrancy guard.**
+   Clicking an idea card in `IdeaGenerator` while a previous generation
+   was still in flight (from the main button or another idea click) could
+   fire two concurrent `/api/content` calls — and since both would call
+   `onSaved()`, this could silently save two queue items from one
+   intended action. Fixed with a guard at the top of `transform()`, which
+   protects against every trigger of this, not just one code path.
+2. **`CopyButton` (ContentEngine) and `MiniCopyButton` (ContentQueue) both
+   fired `setTimeout` callbacks with no unmount guard.** Since both live
+   inside conditionally-rendered sections (tab switches, collapsing an
+   expanded queue item), copying something and immediately switching away
+   would call `setState` on an unmounted component. Fixed both with a
+   `mountedRef` guard.
+3. **`ContentQueue.jsx`'s `cycleStatus` had a real race condition**:
+   rapid double-clicking the same status pill before the first save
+   resolved meant both reads saw the same stale status, so both computed
+   the same "next" value — skipping a step in the cycle instead of
+   advancing twice. Fixed with per-item busy tracking, verified directly
+   with a simulated double-click.
+4. **Crash risk in hashtag rendering**: `hashtagsForPlatform` didn't
+   filter for actual string types before the render called
+   `.startsWith("#")` on each tag — any malformed saved data (e.g. from
+   before the hashtag feature was fully wired) would throw and crash the
+   component. Fixed with a type filter.
+5. **`PostingCalendar.jsx`'s busy-tracking was scoped too narrowly, and
+   my first attempt at fixing it was still wrong** — worth being honest
+   about: `busy` tracked one `scriptId-platformKey` string, which only
+   blocked re-clicking the *exact same* platform button. The real race —
+   clicking two *different* platform checkmarks on the same item before
+   either resolved, both reading the same stale `posted_at` object — was
+   still possible. Caught this by actually reasoning through the
+   scenario rather than assuming the first fix was sufficient, and
+   corrected it to guard by script ID instead, locking the whole item
+   while any one of its platforms is mid-toggle. Verified both the
+   original bug and the corrected fix directly via simulation before
+   shipping.
+6. **`ContentQueue.jsx`'s `remove()` had the same missing-disabled-state
+   gap** as cycleStatus — fixed alongside it with the same busy-tracking.
+
+**Confirmed NOT bugs**: `IdeaGenerator.jsx` itself (the actual bug was in
+`ContentEngine`'s missing guard, not the generator); index-based React
+keys on `algorithm_boost`/hashtag/step lists (safe here since these
+arrays are always fully replaced together with `result`, never
+individually reordered within one render's lifetime — different from the
+`MicroTaskList` case from the previous audit pass).
+
+## Action Center — line-by-line audit, 3 real bugs found and fixed
+Went through `ActionCenterTab.jsx` and everything it directly touches
+(`PrimaryAction.jsx`, `QuickActions.jsx`, `MicroTaskList.jsx`,
+`CoachResponse.jsx`, `extractSteps.js`, `goalProgress.js`,
+`useKadijaData.js`) line by line, verifying each suspected issue by
+tracing the actual code path rather than assuming.
+
+**Real bugs fixed:**
+1. **Race condition, suggested-step buttons**: clicking two different
+   "add to today's list" suggestion chips quickly, before the first save
+   resolved, meant both reads happened against the same stale task array
+   — since the backend write (`upsertTodayBlueprint`) is a blind field
+   overwrite, not an atomic append, the second write could silently
+   overwrite/lose the first added task. Fixed with an in-flight flag that
+   blocks a second add while the first is still saving. Verified with a
+   direct simulation of the double-click scenario: before the fix this
+   would risk data loss, after the fix exactly one write happens and
+   nothing is lost.
+2. **`MicroTaskList.jsx` used array index as the React key** — a real
+   anti-pattern that, on removing an item from the middle of the list,
+   causes React to misattribute the wrong item's identity/state to the
+   remaining items (a latent bug — invisible today since list items have
+   no internal state, but would corrupt data the moment any per-row state
+   gets added). Fixed to key by content+position instead of pure index.
+   Verified directly: removing an item no longer produces a shared key
+   between different content.
+3. **`summarizeGoalsProgress` only excluded `completed` goals from the
+   coach's context — not `paused` ones.** A paused goal (a real status the
+   schema supports) was still being summarized and presented to the coach
+   as something actively being worked toward, which contradicts what
+   "paused" means. Fixed to exclude both statuses. Verified against a
+   realistic mixed-status goal list.
+
+**Checked and confirmed NOT bugs** (traced the code rather than assumed):
+`PrimaryAction`'s loading-state gating (correctly covers both loading and
+scriptLoading), the quick-action buttons' lack of empty-input disabling
+(intentional — falls back to "(no extra context)"), `addedSteps` staying
+correctly scoped per-response (already reset at the top of `ask()`), and
+`Math.max(...[])` in `computeProgress`'s salary case (guarded by a
+`.length` check before ever spreading an empty array).
+
+Action Center is now fully audited. Continuing through the rest of the
+app (Content, Finance, Blueprint) in follow-up passes.
+
+## "Ask a follow-up" and "Ask about a specific situation" merged into one conversation
+They were the same feature wearing two different UIs — a separate
+generate-then-chat two-step for situations, versus a chat that only
+appeared after a daily reading existed. Now there's one persistent
+conversation per area (`ChatFollowUp`, powered by `astrology-chat.js`),
+always available whether or not a reading exists yet.
+
+- **`LifeAreaExplorer.jsx`**: removed the entire separate scenario
+  textarea/button/result flow (`scenarioOpen`, `askScenario`, its own
+  `ReadingBlock` + `ChatFollowUp` instance). The single `ChatFollowUp` at
+  the bottom of the area now handles both what "ask a follow-up" and "ask
+  about a situation" used to do.
+- **`astrology-chat.js`**: the reactive, "a friend hearing news" tone that
+  used to live in `astrology.js`'s separate `buildScenarioPrompt` is now
+  built into the chat endpoint itself — it checks whether this is the
+  first message in the conversation (a fresh situation being raised) or a
+  continuing one, and uses the appropriate voice for each, rather than
+  needing two different code paths to get two different tones.
+- Relabeled "Ask a follow-up" → "Talk about what's going on," since it's
+  no longer scoped to only following up on an existing reading.
+- `astrology.js`'s now-unused `scenario` parameter handling was left in
+  place (inert, nothing calls it anymore, but harmless to leave rather
+  than risk touching a working endpoint for no functional gain).
+- Verified both tone branches (fresh situation vs. continuing
+  conversation) execute cleanly, and confirmed no dangling references to
+  the removed scenario UI state remain anywhere.
+
+## Hashtags rebuilt per-platform with real 2026 research — one honest limitation
+Important thing to be upfront about: there is no way to actually "test a
+hashtag against a platform's algorithm" from this app — no platform gives
+API access to their ranking algorithm, and this app has no live trend
+data. Didn't build a fake version of that. What's real and buildable:
+each platform's hashtag *rules* are genuinely different, researched
+current numbers, not guesses:
+
+- **Generic tags banned outright**: #fyp, #foryou, #love, #instagood,
+  #viral now provide zero measurable benefit on any platform per 2026
+  data — they're saturated and platforms ignore them as ranking signal.
+  Filtered these out in code, not just prompt instruction, so one can't
+  slip through even if the model suggests one.
+- **Per-platform counts, code-enforced**: TikTok 3-5, Instagram 3-5 (was
+  wrongly hardcoded at "exactly 5, mix of broad and niche" — broad tags
+  specifically are what's now penalized), X 1-2 max, Facebook 1-2 or none.
+  Each cap is enforced server-side, same pattern as the 140-char X limit
+  from last round — not left purely to the model's judgment.
+- **Hashtags moved to their own field** (`hashtags`, keyed by platform)
+  instead of baked into the Instagram caption text, so each platform gets
+  its own genuinely appropriate set instead of one Instagram-shaped list
+  copy-pasted everywhere.
+- New `hashtags` column on `scripts_and_ideas` (jsonb) — **run the schema
+  migration**. Displayed in both the live generator and reopened queue
+  items, each platform tab showing only its own tags.
+
+Verified the enforcement logic directly with deliberately bad input
+(overshoot counts + a banned generic tag mixed in) — confirmed it filters
+and caps correctly per platform before anything reaches the response.
+
+## X posts hard-capped at 140 characters, every platform limit fact-checked
+Searched for real, current platform limits rather than assume the
+existing numbers were right:
+- **X**: real standard-account limit is 280 characters. The code had
+  "minimum 140" — not even a real limit, just an arbitrary internal
+  floor, and the opposite of what you asked for. Fixed to a hard cap at
+  exactly 140, with a genuine code-level enforcement (not just a prompt
+  instruction) that trims to a word boundary if the model ever overshoots
+  — this one gets double protection since it's now an explicit,
+  non-negotiable request, not just a style guideline.
+- **Instagram**: real limit is 2,200 characters, but only ~125 show
+  before "...more" truncation — so the actual constraint reframed
+  correctly: the first line must land as a complete thought within 125
+  characters, not the whole caption artificially limited to something
+  small.
+- **Facebook**: real technical limit is enormous (60,000+ characters) —
+  the app's 80-word cap is a deliberate readability choice, now labeled
+  honestly as that rather than implied to be a platform rule.
+- **TikTok script**: labeled correctly as a script-length choice for
+  filmability, not a platform character limit (TikTok's real caption
+  limit is much higher).
+
+Verified the new X enforcement logic directly: an over-length string gets
+trimmed cleanly to a word boundary under 140, while already-compliant
+text passes through completely untouched.
+
 ## Cross-platform voice consistency — X and Facebook had the same problem as TikTok
 Your X post screenshot showed the exact same fabricated-anecdote and
 motivational-poster problems the TikTok script had ("A disagreement

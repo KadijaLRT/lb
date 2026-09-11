@@ -58,7 +58,13 @@ export default function PostingCalendar({ profile, refreshKey }) {
   const [open, setOpen] = useState(false);
   const [scripts, setScripts] = useState(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(null); // `${scriptId}-${platformKey}` while a toggle is in flight
+  // Tracks busy by script id alone, not scriptId+platform — the real race
+  // is two DIFFERENT platform toggles on the SAME item firing before
+  // either resolves, both reading the same stale posted_at object and one
+  // silently overwriting the other's write. Guarding only the exact same
+  // button doesn't prevent that; the whole item needs to lock while any
+  // one of its platforms is mid-toggle.
+  const [busyScriptIds, setBusyScriptIds] = useState(() => new Set());
 
   useEffect(() => {
     if (!open || !profile?.id) return;
@@ -71,17 +77,21 @@ export default function PostingCalendar({ profile, refreshKey }) {
   }, [open, profile?.id, refreshKey]);
 
   async function togglePosted(script, platformKey) {
-    const busyKey = `${script.id}-${platformKey}`;
-    setBusy(busyKey);
+    if (busyScriptIds.has(script.id)) return;
+    setBusyScriptIds((prev) => new Set(prev).add(script.id));
     setError("");
     try {
-      const updated = await toggleScriptPlatformPosted(script.id, platformKey, script.posted_at, localDateString());
+      const updated = await toggleScriptPlatformPosted(script.id, platformKey, localDateString());
       setScripts((prev) => prev.map((s) => (s.id === script.id ? updated : s)));
     } catch (err) {
       console.error(err);
       setError("Couldn't update that — try again.");
     } finally {
-      setBusy(null);
+      setBusyScriptIds((prev) => {
+        const next = new Set(prev);
+        next.delete(script.id);
+        return next;
+      });
     }
   }
 
@@ -124,7 +134,7 @@ export default function PostingCalendar({ profile, refreshKey }) {
                 <div className="flex flex-wrap gap-1.5">
                   {platformsFor(s).map((p) => {
                     const isPosted = !!s.posted_at?.[p.key];
-                    const isBusy = busy === `${s.id}-${p.key}`;
+                    const isBusy = busyScriptIds.has(s.id);
                     return (
                       <button
                         key={p.key}
@@ -153,17 +163,21 @@ export default function PostingCalendar({ profile, refreshKey }) {
                   <div key={s.id} className="flex items-start justify-between gap-2 text-xs text-muted">
                     <span className="flex-1">{s.raw_brain_dump || "(no source text)"}</span>
                     <span className="flex gap-1 shrink-0 pt-0.5">
-                      {platformsFor(s).map((p) => (
-                        <button
-                          key={p.key}
-                          type="button"
-                          onClick={() => togglePosted(s, p.key)}
-                          title={`Posted to ${p.platform} on ${s.posted_at[p.key]} — tap to undo`}
-                          className={`${p.color} hover:opacity-60 transition-opacity`}
-                        >
-                          <Check size={12} />
-                        </button>
-                      ))}
+                      {platformsFor(s).map((p) => {
+                        const isBusy = busyScriptIds.has(s.id);
+                        return (
+                          <button
+                            key={p.key}
+                            type="button"
+                            disabled={isBusy}
+                            onClick={() => togglePosted(s, p.key)}
+                            title={`Posted to ${p.platform} on ${s.posted_at[p.key]} — tap to undo`}
+                            className={`${p.color} hover:opacity-60 transition-opacity disabled:opacity-30`}
+                          >
+                            <Check size={12} />
+                          </button>
+                        );
+                      })}
                     </span>
                   </div>
                 ))}

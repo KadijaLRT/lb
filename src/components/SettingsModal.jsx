@@ -64,6 +64,12 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
 
   if (!open) return null;
 
+  function handleClose() {
+    if (profile) setForm(profile); // discard any unsaved edits so reopening shows real saved state, not an abandoned draft
+    setError("");
+    onClose();
+  }
+
   async function handleSubmit(e) {
     e.preventDefault();
     setSaving(true);
@@ -86,7 +92,8 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
         if (patch[key] === "") {
           patch[key] = null;
         } else if (NUMERIC_FIELDS.includes(key) && patch[key] != null) {
-          patch[key] = Number(patch[key]);
+          const n = Number(patch[key]);
+          patch[key] = Number.isFinite(n) ? n : null; // a garbage numeric string shouldn't silently become NaN in the payload
         }
       });
       await onSave(patch);
@@ -108,7 +115,7 @@ export default function SettingsModal({ open, onClose, profile, onSave }) {
       <div className="w-full max-w-sm max-h-[85vh] overflow-y-auto bg-panel border border-line rounded-2xl p-5">
         <div className="flex items-center justify-between mb-4">
           <h2 className="font-display text-xl text-cream">Your details</h2>
-          <button type="button" onClick={onClose} aria-label="Close" className="text-muted hover:text-cream">
+          <button type="button" onClick={handleClose} aria-label="Close" className="text-muted hover:text-cream">
             <X size={18} />
           </button>
         </div>

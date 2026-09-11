@@ -23,6 +23,7 @@ export default function App() {
     ready,
     dbError,
     setMicroTasks,
+    addMicroTask,
     saveProfileFields,
     refreshSpend,
   } = useKadijaData();
@@ -49,6 +50,7 @@ export default function App() {
         execution_steps: result.execution_steps || {},
         hook_variants: result.hook_variants || [],
         algorithm_boost: result.algorithm_boost || [],
+        hashtags: result.hashtags || {},
         engagement_tip: result.engagement_tip,
         word_count: result.word_count,
         status: "draft",
@@ -73,6 +75,7 @@ export default function App() {
             profile={profile}
             blueprint={blueprint}
             onSaveTasks={setMicroTasks}
+            onAddTask={addMicroTask}
             onContentSaved={handleScriptSaved}
             onViewContent={() => setTab("content")}
           />

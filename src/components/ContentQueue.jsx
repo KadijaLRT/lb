@@ -1,8 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronDown, Check, Trash2, Copy, Zap, TrendingUp } from "lucide-react";
-import { listScripts, updateScriptStatus, deleteScript } from "../lib/db.js";
+import { listScripts, cycleScriptStatus, deleteScript } from "../lib/db.js";
 
-const STATUS_CYCLE = { draft: "ready", ready: "posted", posted: "draft" };
 const STATUS_LABEL = { draft: "Draft", ready: "Ready", posted: "Posted" };
 const STATUS_COLOR = { draft: "text-muted", ready: "text-clay", posted: "text-earth" };
 const PLATFORM_TABS = [
@@ -14,12 +13,23 @@ const PLATFORM_TABS = [
 
 function MiniCopyButton({ text }) {
   const [copied, setCopied] = useState(false);
+  const mountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
   async function handleCopy(e) {
     e.stopPropagation();
     try {
       await navigator.clipboard.writeText(text || "");
+      if (!mountedRef.current) return;
       setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
+      setTimeout(() => {
+        if (mountedRef.current) setCopied(false);
+      }, 1200);
     } catch {
       // silent — this is a small inline affordance, a failed copy just doesn't confirm
     }
@@ -38,6 +48,12 @@ function stepsForPlatform(executionSteps, platformKey) {
   if (!executionSteps) return [];
   if (Array.isArray(executionSteps)) return executionSteps;
   return executionSteps[platformKey] || [];
+}
+
+function hashtagsForPlatform(hashtags, platformKey) {
+  if (!hashtags || typeof hashtags !== "object") return [];
+  const tags = Array.isArray(hashtags[platformKey]) ? hashtags[platformKey] : [];
+  return tags.filter((t) => typeof t === "string");
 }
 
 // Full multi-platform view for a saved queue item — reopening a queued
@@ -120,6 +136,16 @@ function ExpandedQueueItem({ script }) {
         </div>
       )}
 
+      {hashtagsForPlatform(script.hashtags, tab).length > 0 && (
+        <div className="flex flex-wrap gap-1.5">
+          {hashtagsForPlatform(script.hashtags, tab).map((tag, i) => (
+            <span key={i} className="text-[10px] text-clay bg-clay/10 px-2 py-0.5 rounded-full">
+              {tag.startsWith("#") ? tag : `#${tag}`}
+            </span>
+          ))}
+        </div>
+      )}
+
       {stepsForPlatform(script.execution_steps, tab).length > 0 && (
         <div className="pt-1 border-t border-line flex flex-col gap-1">
           <span className="text-[10px] uppercase tracking-wider text-muted">
@@ -142,6 +168,7 @@ export default function ContentQueue({ profile, refreshKey }) {
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState(null);
   const [actionError, setActionError] = useState("");
+  const [busyIds, setBusyIds] = useState(() => new Set());
 
   useEffect(() => {
     if (!open || !profile?.id) return;
@@ -156,19 +183,28 @@ export default function ContentQueue({ profile, refreshKey }) {
   }, [open, profile?.id, refreshKey]);
 
   async function cycleStatus(script) {
-    const next = STATUS_CYCLE[script.status] || "draft";
+    if (busyIds.has(script.id)) return; // still a good UX guard even though the backend now makes the underlying race impossible regardless
     setActionError("");
+    setBusyIds((prev) => new Set(prev).add(script.id));
     try {
-      await updateScriptStatus(script.id, next);
-      setScripts((prev) => prev.map((s) => (s.id === script.id ? { ...s, status: next } : s)));
+      const updated = await cycleScriptStatus(script.id);
+      setScripts((prev) => prev.map((s) => (s.id === script.id ? updated : s)));
     } catch (err) {
       console.error(err);
       setActionError("Couldn't update status.");
+    } finally {
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(script.id);
+        return next;
+      });
     }
   }
 
   async function remove(script) {
+    if (busyIds.has(script.id)) return;
     setActionError("");
+    setBusyIds((prev) => new Set(prev).add(script.id));
     try {
       await deleteScript(script.id);
       setScripts((prev) => prev.filter((s) => s.id !== script.id));
@@ -176,6 +212,11 @@ export default function ContentQueue({ profile, refreshKey }) {
     } catch (err) {
       console.error(err);
       setActionError("Couldn't delete that.");
+      setBusyIds((prev) => {
+        const next = new Set(prev);
+        next.delete(script.id);
+        return next;
+      });
     }
   }
 
@@ -209,8 +250,9 @@ export default function ContentQueue({ profile, refreshKey }) {
                 <button
                   type="button"
                   onClick={() => remove(s)}
+                  disabled={busyIds.has(s.id)}
                   aria-label="Delete"
-                  className="text-muted hover:text-fire shrink-0"
+                  className="text-muted hover:text-fire shrink-0 disabled:opacity-40"
                 >
                   <Trash2 size={13} />
                 </button>
@@ -222,7 +264,8 @@ export default function ContentQueue({ profile, refreshKey }) {
                 <button
                   type="button"
                   onClick={() => cycleStatus(s)}
-                  className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full border border-line ${STATUS_COLOR[s.status] || "text-muted"}`}
+                  disabled={busyIds.has(s.id)}
+                  className={`text-xs flex items-center gap-1 px-2 py-0.5 rounded-full border border-line disabled:opacity-40 ${STATUS_COLOR[s.status] || "text-muted"}`}
                 >
                   {s.status === "posted" && <Check size={11} />}
                   {STATUS_LABEL[s.status] || "Draft"}

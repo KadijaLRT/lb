@@ -33,12 +33,19 @@ export default function JobApplicationTracker({ profile }) {
 
   useEffect(() => {
     if (!open || !profile?.id) return;
+    let cancelled = false;
     listJobApplications(profile.id)
-      .then(setApps)
+      .then((data) => {
+        if (!cancelled) setApps(data);
+      })
       .catch((err) => {
+        if (cancelled) return;
         console.error(err);
         setError("Couldn't load your applications.");
       });
+    return () => {
+      cancelled = true;
+    };
   }, [open, profile?.id]);
 
   async function handleAdd(e) {
@@ -201,7 +208,7 @@ export default function JobApplicationTracker({ profile }) {
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
                       {app.job_url && (
-                        <a href={app.job_url} target="_blank" rel="noreferrer" className="text-muted hover:text-clay">
+                        <a href={app.job_url} target="_blank" rel="noopener noreferrer" className="text-muted hover:text-clay">
                           <ExternalLink size={13} />
                         </a>
                       )}

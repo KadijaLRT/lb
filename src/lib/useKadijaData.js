@@ -5,6 +5,7 @@ import {
   updateProfile,
   getTodayBlueprint,
   upsertTodayBlueprint,
+  appendMicroTask,
   getPrimaryAccount,
   getWeekSpend,
   updateAccountBudget,
@@ -75,6 +76,21 @@ export function useKadijaData() {
     [profile]
   );
 
+  // Atomic single-task append — for adding ONE new task (the suggested-
+  // step chips), as opposed to setMicroTasks above which sets the whole
+  // array (used for toggling/removing an existing task, where the caller
+  // legitimately needs to supply an arbitrary new array state). Uses
+  // append_micro_task under the hood (see schema.sql) so two concurrent
+  // adds can't silently drop one of them.
+  const addMicroTask = useCallback(
+    async (task) => {
+      if (!profile) throw new Error("Still loading your profile — try again in a moment.");
+      const bp = await appendMicroTask(profile.id, task);
+      setBlueprint(bp);
+    },
+    [profile]
+  );
+
   const setFocus = useCallback(
     async (text, elementTag) => {
       if (!profile) throw new Error("Still loading your profile — try again in a moment.");
@@ -116,6 +132,7 @@ export function useKadijaData() {
     dbError,
     setFocus,
     setMicroTasks,
+    addMicroTask,
     saveProfileFields,
     refreshSpend,
     refreshAccount,

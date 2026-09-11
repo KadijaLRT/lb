@@ -60,6 +60,28 @@ export async function upsertTodayBlueprint(userId, patch) {
   return data;
 }
 
+// Atomic "append one task" — used specifically by the suggested-step
+// chips, which are the one place multiple concurrent adds were a real
+// risk (clicking two different suggestions quickly, before either save
+// resolved). Calls the append_micro_task Postgres function (see
+// schema.sql), which does the whole "does today's row exist yet, append
+// to its array either way" logic in one atomic upsert — two concurrent
+// calls can no longer both read the same stale array and have one
+// overwrite the other's addition. Toggling/removing an existing task
+// still goes through upsertTodayBlueprint above (it needs to set the
+// whole array to an arbitrary new state, which isn't a plain append).
+export async function appendMicroTask(userId, task) {
+  if (!supabase) return null;
+  const today = localDateString();
+  const { data, error } = await supabase.rpc("append_micro_task", {
+    p_user_id: userId,
+    p_date: today,
+    p_task: task,
+  });
+  if (error) throw error;
+  return data;
+}
+
 export async function updateAccountBudget(accountId, weeklySpendLimit) {
   if (!supabase) return null;
   const { data, error } = await supabase
@@ -157,6 +179,22 @@ export async function updateGoal(id, patch) {
     .eq("id", id)
     .select()
     .single();
+  if (error) throw error;
+  return data;
+}
+
+// Atomic version of "read current_amount, add delta, write it back" — used
+// by the log payment/deposit buttons. Calls the increment_goal_amount
+// Postgres function (see schema.sql) so the whole read-modify-write
+// happens in one database statement instead of a client-computed round
+// trip — Postgres's own row locking makes this safe under concurrent
+// calls from anywhere, not just this one browser tab.
+export async function incrementGoalAmount(goalId, delta) {
+  if (!supabase) return null;
+  const { data, error } = await supabase.rpc("increment_goal_amount", {
+    p_goal_id: goalId,
+    p_delta: delta,
+  });
   if (error) throw error;
   return data;
 }
@@ -314,36 +352,34 @@ export async function saveScript(userId, payload) {
   return data;
 }
 
-export async function updateScriptStatus(scriptId, status) {
+// Was previously "set status to this explicit value" (client computed the
+// next value via a local STATUS_CYCLE lookup). Now calls the
+// cycle_script_status Postgres function (see schema.sql), which reads the
+// row's OWN current status and computes the next one entirely inside the
+// atomic UPDATE — two rapid clicks can no longer both read the same stale
+// status and skip a step in the cycle.
+export async function cycleScriptStatus(scriptId) {
   if (!supabase) return null;
-  const { data, error } = await supabase
-    .from("scripts_and_ideas")
-    .update({ status })
-    .eq("id", scriptId)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("cycle_script_status", { p_script_id: scriptId });
   if (error) throw error;
   return data;
 }
 
 // Toggles a single platform's posted date on/off within the posted_at
-// jsonb map — setting it (not clearing an unrelated platform) and lets the
-// overall status auto-advance to "posted" once every platform that has
-// content is marked posted, or back to "ready" if you undo one.
-export async function toggleScriptPlatformPosted(scriptId, platformKey, currentPostedAt, isoDate) {
+// jsonb map. Calls the toggle_script_platform_posted Postgres function
+// (see schema.sql) — the read-check-write now happens entirely inside one
+// row-locked database transaction, so two different platform checkmarks
+// on the same item being toggled in quick succession can no longer both
+// read the same stale posted_at object and have one silently overwrite
+// the other's write. No longer needs the current posted_at passed in at
+// all — the database reads its own fresh value.
+export async function toggleScriptPlatformPosted(scriptId, platformKey, isoDate) {
   if (!supabase) return null;
-  const nextPostedAt = { ...(currentPostedAt || {}) };
-  if (nextPostedAt[platformKey]) {
-    delete nextPostedAt[platformKey];
-  } else {
-    nextPostedAt[platformKey] = isoDate;
-  }
-  const { data, error } = await supabase
-    .from("scripts_and_ideas")
-    .update({ posted_at: nextPostedAt })
-    .eq("id", scriptId)
-    .select()
-    .single();
+  const { data, error } = await supabase.rpc("toggle_script_platform_posted", {
+    p_script_id: scriptId,
+    p_platform_key: platformKey,
+    p_posted_date: isoDate,
+  });
   if (error) throw error;
   return data;
 }

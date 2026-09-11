@@ -99,6 +99,47 @@ alter table goals enable row level security;
 drop policy if exists "allow all - phase1" on goals;
 create policy "allow all - phase1" on goals for all using (true) with check (true);
 
+-- Atomic backend fixes for the read-modify-write races found in the app
+-- audit. The client-side busy-flag guards added during that audit only
+-- protect against a race WITHIN one browser tab — they do nothing against
+-- the same user on two devices, a retried request, or any client that
+-- doesn't happen to run this app's exact JS. Postgres serializes
+-- concurrent UPDATEs to the same row at the engine level, so doing the
+-- whole read-modify-write in a single atomic statement (via RPC, since
+-- the Supabase REST client can't express "new value = old value + delta"
+-- in a plain .update() call) eliminates the race entirely, for every
+-- client, not just this one. The frontend busy-flags stay in place too —
+-- they're still worth keeping for the UX (visibly disabling a button
+-- while its action is in flight), just no longer the only thing
+-- protecting data integrity.
+
+-- Fixes GoalsTracker.jsx's logAmount race: two rapid "log payment/deposit"
+-- clicks on the same goal used to both read the same stale current_amount
+-- and compute the same next value client-side. Now the increment happens
+-- entirely inside the UPDATE statement, so Postgres's own row locking
+-- guarantees two concurrent calls both apply, in some order, correctly —
+-- neither can ever be silently lost.
+create or replace function increment_goal_amount(p_goal_id uuid, p_delta numeric)
+returns goals
+language plpgsql
+as $$
+declare
+  result goals;
+begin
+  update goals
+  set current_amount = greatest(0, coalesce(current_amount, 0) + p_delta),
+      updated_at = now()
+  where id = p_goal_id
+  returning * into result;
+
+  if not found then
+    raise exception 'Goal % not found', p_goal_id;
+  end if;
+
+  return result;
+end;
+$$;
+
 -- Persisted follow-up chat messages for Go Deeper readings. Scoped by a
 -- context_key so daily area readings get a fresh thread each day
 -- (e.g. "career:2026-08-28") while the Full Chart reading gets one ongoing
@@ -142,6 +183,7 @@ alter table user_profile add column if not exists content_voice_sample text;
 -- Algorithm-boost fields for generated content
 alter table scripts_and_ideas add column if not exists hook_variants jsonb default '[]'::jsonb;
 alter table scripts_and_ideas add column if not exists algorithm_boost jsonb default '[]'::jsonb;
+alter table scripts_and_ideas add column if not exists hashtags jsonb default '{}'::jsonb;
 
 -- Job application tracker — works toward the salary/job goal in core_goals
 create table if not exists job_applications (
@@ -245,3 +287,103 @@ drop policy if exists "allow all - phase1" on transactions;
 create policy "allow all - phase1" on transactions for all using (true) with check (true);
 drop policy if exists "allow all - phase1" on scripts_and_ideas;
 create policy "allow all - phase1" on scripts_and_ideas for all using (true) with check (true);
+
+-- Three more atomic backend fixes, same reasoning as increment_goal_amount
+-- above — moving each read-modify-write entirely into one database
+-- statement instead of a client-computed round trip.
+
+-- Fixes ContentQueue.jsx's cycleStatus race: two rapid clicks on the same
+-- status pill used to both read the same stale status and compute the
+-- same "next" value client-side, skipping a step in the cycle instead of
+-- advancing twice. The CASE expression reads the row's OWN current value
+-- at the moment of the atomic update, never a value supplied by the
+-- client, so this can't desync from reality no matter how many concurrent
+-- callers there are.
+create or replace function cycle_script_status(p_script_id uuid)
+returns scripts_and_ideas
+language plpgsql
+as $$
+declare
+  result scripts_and_ideas;
+begin
+  update scripts_and_ideas
+  set status = case status
+    when 'draft' then 'ready'
+    when 'ready' then 'posted'
+    else 'draft'
+  end
+  where id = p_script_id
+  returning * into result;
+
+  if not found then
+    raise exception 'Script % not found', p_script_id;
+  end if;
+
+  return result;
+end;
+$$;
+
+-- Fixes PostingCalendar.jsx's togglePosted race — the more serious one
+-- from the audit, since it wasn't just "the same button clicked twice"
+-- but two DIFFERENT platform checkmarks on the same item, both reading
+-- the same stale posted_at object, one silently overwriting the other's
+-- write. The jsonb merge/key-removal happens inside the UPDATE itself, so
+-- concurrent toggles of different keys on the same row can never clobber
+-- each other — Postgres's own row locking serializes them correctly.
+create or replace function toggle_script_platform_posted(p_script_id uuid, p_platform_key text, p_posted_date date)
+returns scripts_and_ideas
+language plpgsql
+as $$
+declare
+  result scripts_and_ideas;
+  current_val jsonb;
+begin
+  select posted_at into current_val from scripts_and_ideas where id = p_script_id for update;
+
+  if current_val is null then
+    current_val := '{}'::jsonb;
+  end if;
+
+  if current_val ? p_platform_key then
+    current_val := current_val - p_platform_key;
+  else
+    current_val := current_val || jsonb_build_object(p_platform_key, p_posted_date);
+  end if;
+
+  update scripts_and_ideas
+  set posted_at = current_val
+  where id = p_script_id
+  returning * into result;
+
+  if not found then
+    raise exception 'Script % not found', p_script_id;
+  end if;
+
+  return result;
+end;
+$$;
+
+-- Fixes ActionCenterTab.jsx's addSuggestedStep race — two different
+-- suggested-step chips clicked quickly used to both read the same stale
+-- micro_tasks array and both compute "array + 1 new item" from it,
+-- meaning the second write could silently drop the first task. Handles
+-- both "today's row doesn't exist yet" (insert) and "it exists, append to
+-- the array" (update) in one atomic upsert — the jsonb concatenation
+-- happens server-side against whatever the row's CURRENT array actually
+-- is, not a client-side snapshot of it.
+create or replace function append_micro_task(p_user_id uuid, p_date date, p_task jsonb)
+returns daily_blueprint
+language plpgsql
+as $$
+declare
+  result daily_blueprint;
+begin
+  insert into daily_blueprint (user_id, date, micro_tasks)
+  values (p_user_id, p_date, jsonb_build_array(p_task))
+  on conflict (user_id, date)
+  do update set micro_tasks = coalesce(daily_blueprint.micro_tasks, '[]'::jsonb) || jsonb_build_array(p_task)
+  returning * into result;
+
+  return result;
+end;
+$$;

@@ -8,7 +8,7 @@ import { extractStepsFromReply } from "../lib/extractSteps.js";
 import { listGoals, listJobApplications } from "../lib/db.js";
 import { summarizeGoalsProgress } from "../lib/goalProgress.js";
 
-export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onContentSaved, onViewContent }) {
+export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onAddTask, onContentSaved, onViewContent }) {
   const [vibe, setVibe] = useState("");
   const [input, setInput] = useState("");
   const [response, setResponse] = useState("");
@@ -20,6 +20,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
   const [scriptSaved, setScriptSaved] = useState(false);
   const [candidateSteps, setCandidateSteps] = useState([]);
   const [addedSteps, setAddedSteps] = useState({});
+  const [addingStep, setAddingStep] = useState(false);
   const [goalsProgress, setGoalsProgress] = useState("");
 
   useEffect(() => {
@@ -167,10 +168,18 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
       setTaskError("Today's list is full (3/3) — clear one first.");
       return;
     }
+    if (addingStep) return; // still a good UX guard even though the backend now makes the underlying race impossible regardless
+    setAddingStep(true);
     setTaskError("");
-    const text = step;
-    await handleTaskChange([...tasks, { text, done: false }]);
-    setAddedSteps((prev) => ({ ...prev, [index]: true }));
+    try {
+      await onAddTask({ text: step, done: false });
+      setAddedSteps((prev) => ({ ...prev, [index]: true }));
+    } catch (err) {
+      console.error("Couldn't add task:", err);
+      setTaskError(err.message || "Couldn't save that — try again.");
+    } finally {
+      setAddingStep(false);
+    }
   }
 
   return (
@@ -199,7 +208,7 @@ export default function ActionCenterTab({ profile, blueprint, onSaveTasks, onCon
               <button
                 key={i}
                 type="button"
-                disabled={addedSteps[i] || tasks.length >= 3}
+                disabled={addedSteps[i] || tasks.length >= 3 || addingStep}
                 onClick={() => addSuggestedStep(step, i)}
                 className="flex items-start gap-2 text-left text-sm px-3 py-1.5 rounded-2xl border border-line hover:border-clay text-muted hover:text-cream transition-colors disabled:opacity-40 disabled:hover:border-line disabled:hover:text-muted"
               >

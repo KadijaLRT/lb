@@ -17,10 +17,18 @@ Voice for the actual generated content (script, caption, post) — this matters 
 Hard rules:
 - EVERY rule in the Voice section above applies equally to ALL FOUR outputs — tiktok_reels_script, instagram_caption, x_post, and facebook_post. Not just the TikTok script. The same fabrication, anecdote-inventing, and motivational-poster-phrase problems can happen in a caption or a tweet just as easily as a script, and they're just as wrong there. Before finalizing each of the four, re-check it specifically against: did I invent a detail or incident not in the brain dump? Did I convert a general statement into a fake personal story? Did I use a banned phrase/shape ("No drama, just real," "It's not about X, it's about Y," etc.)? If yes to any of those in ANY of the four outputs, rewrite that one specifically — don't leave TikTok clean while X or Facebook still has the problem.
 - Strip all filler, setups, throat-clearing, and long intros.
-- tiktok_reels_script: hook must be the very first line and land in under 3 seconds of read time. Hard cap 130 words. This same script also works for IG/FB Reels — don't write a separate video script for Instagram.
-- instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Short, punchy first line (gets cut off after ~125 chars so front-load it), a line break, then 1-3 more lines. Include exactly 5 relevant hashtags at the end, mix of broad and niche. Still subject to every voice rule above — a caption can fabricate a fake anecdote just as easily as a script can.
-- x_post: a single standalone tweet — NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Minimum 140 characters (X's real limit is 280, so use the space — don't write something short and padded to hit the minimum, actually say something with it). Hook-first still applies: the opening should stop a scroll. Longer-form platforms like X are actually WHERE fabricated anecdotes and poster-phrases tend to sneak in most, because there's more room to fill — stay just as disciplined here as in the short TikTok hook.
-- facebook_post: short, plain-spoken, max 80 words. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that. "Conversational" does not mean inventing a story that didn't happen — it means writing the way a person actually talks, still grounded in only what they said.
+- EACH PLATFORM HAS ITS OWN REAL CHARACTER/WORD LIMIT — these are the actual site rules, not arbitrary choices, so treat them as hard caps, never exceed them:
+  - tiktok_reels_script: hook must be the very first line and land in under 3 seconds of read time. HARD CAP 130 words (this is a script-length choice for a short-form video, not a platform character limit — TikTok itself allows much longer captions, but a script this app generates needs to stay filmable in one breath). This same script also works for IG/FB Reels — don't write a separate video script for Instagram.
+  - instagram_caption: NOT the video script — this is the caption that goes under the post/reel. Instagram's real limit is 2,200 characters, but only the first ~125 characters show before "...more" — so the actual constraint that matters is the FIRST LINE, which must land as a complete, punchy thought within 125 characters on its own, not get cut off mid-sentence. Keep the whole caption to 2-4 short lines total (well under the 2,200 ceiling — there's no reason to approach it for this kind of post). Still subject to every voice rule above. Hashtags go in the separate hashtags field, not inline in this caption text.
+  - x_post: X's real hard limit for a standard account is 280 characters — but for this app, HARD CAP AT 140 CHARACTERS EXACTLY, no exceptions, even though X itself would allow more. Count actual characters including spaces and punctuation before finalizing; if it's over 140, cut it down, don't pad a short one up. NOT a thread, NOT numbered, no "1/" "2/" "3/" markers. Hook-first still applies within that 140: the opening words should stop a scroll. Say one real thing well in 140 characters rather than a padded, vague version of two things.
+  - facebook_post: Facebook's real technical limit is enormous (60,000+ characters) — but a wall of text performs worse there, so this app's own house limit is max 80 words, a deliberate readability choice, not a platform constraint. Facebook rewards conversational tone and questions more than TikTok/IG do — lean into that. "Conversational" does not mean inventing a story that didn't happen — it means writing the way a person actually talks, still grounded in only what they said.
+- HASHTAGS — real 2026 platform research, not guesswork, and NOT tested against any live algorithm (this app has no access to that, never claim otherwise):
+  - Broad/generic tags (#fyp, #foryou, #love, #instagood, #viral) provide ZERO measurable algorithmic benefit on any platform as of 2026 — they're saturated and platforms now ignore them as a ranking signal. NEVER suggest these. Every hashtag must be genuinely specific to what THIS piece is actually about.
+  - tiktok: 3-5 hashtags, short and specific — one broader category tag plus 2-4 niche descriptors that describe exactly what's in the video. TikTok's algorithm is primarily content-aware (it reads the actual video/audio/text), so hashtags help categorization more than raw reach.
+  - instagram: 3-5 hashtags MAX (Instagram itself now caps effective reach around this range — more provides no additional benefit and can read as spammy). Specific, niche tags substantially outperform broad ones. Mix: 1-2 broader relevant tags, 2-3 narrow/specific ones.
+  - x: 1-2 hashtags only, or none. X hashtag culture is different from IG/TikTok — more than 2 looks like spam there. A hashtag is only worth including if it's a real, specific, on-topic term someone might actually be discussing, not decoration.
+  - facebook: 1-2 hashtags only, or none — Facebook's algorithm relies on hashtags the least of any platform here, and Facebook posts with heavy hashtag use often read as inauthentic. Skip entirely if nothing genuinely relevant fits.
+  - Every hashtag must describe something ACTUALLY in this specific piece — no stretching a tag to fit ("don't put #fitness on a coffee post because fitness people drink coffee too"). If you can't think of a genuinely relevant tag for a platform, return fewer tags or an empty list for that platform rather than padding with a loose fit.
 - execution_steps: an OBJECT keyed by platform (tiktok, instagram, x, facebook), NOT one shared list — the actual mechanics of posting differ enough per platform that a single generic checklist doesn't serve any of them well. 3-4 steps per platform, EXTREMELY concrete and ADHD-friendly — no step should require more than one decision.
   - tiktok: filming/delivery mechanics. Bad: "Film the video." Good: "Say hook line straight into the camera, no retakes unless you flub words." Include one step naming a concrete posting-time window and one about replying to early comments fast.
   - instagram: caption + cover frame + cross-posting mechanics specifically (e.g. "Pick the cover frame where your face is clearest, not the first frame by default," "Post to Stories with a poll sticker linking to the main post within the hour").
@@ -41,9 +49,15 @@ Return strict JSON with this exact shape:
 {
   "core_message": "one sentence",
   "tiktok_reels_script": "string, max 130 words, hook first line, no invented details/anecdotes, no banned phrases",
-  "instagram_caption": "string with line breaks, ending in exactly 5 hashtags, no invented details/anecdotes, no banned phrases",
-  "x_post": "string, single tweet, minimum 140 characters, not numbered, not a thread, no invented details/anecdotes, no banned phrases",
+  "instagram_caption": "string with line breaks, no hashtags inline, no invented details/anecdotes, no banned phrases",
+  "x_post": "string, HARD CAP 140 characters exactly (count it), not numbered, not a thread, no invented details/anecdotes, no banned phrases",
   "facebook_post": "string, max 80 words, conversational, no invented details/anecdotes, no banned phrases",
+  "hashtags": {
+    "tiktok": ["tag1", "tag2", "tag3"],
+    "instagram": ["tag1", "tag2", "tag3"],
+    "x": ["tag1"],
+    "facebook": []
+  },
   "execution_steps": {
     "tiktok": ["step 1", "step 2", "step 3"],
     "instagram": ["step 1", "step 2", "step 3"],
@@ -136,6 +150,32 @@ export default async function handler(req, res) {
             ? "Content engine response was cut off before finishing (hit length limit). Try a shorter brain dump, or try again."
             : "Content engine returned unparseable output. Try again.",
       });
+    }
+
+    // Hard-enforce the 140-character X cap in code rather than trusting the
+    // model's own counting — this was explicitly requested as a real limit,
+    // so it shouldn't be able to slip past even if the model miscounts.
+    // Cuts at a word boundary rather than mid-word.
+    if (typeof parsed.x_post === "string" && parsed.x_post.length > 140) {
+      const cut = parsed.x_post.slice(0, 140);
+      const lastSpace = cut.lastIndexOf(" ");
+      parsed.x_post = lastSpace > 100 ? cut.slice(0, lastSpace) : cut;
+    }
+
+    // Enforce hashtag counts and filter banned generic tags in code too —
+    // same reasoning as the X character cap. Even if the model slips in
+    // #fyp or exceeds a platform's count, this is the last real check.
+    const HASHTAG_CAPS = { tiktok: 5, instagram: 5, x: 2, facebook: 2 };
+    const BANNED_GENERIC = new Set(["fyp", "foryou", "foryoupage", "love", "instagood", "viral", "viralvideo", "trending"]);
+    if (parsed.hashtags && typeof parsed.hashtags === "object") {
+      for (const platform of Object.keys(HASHTAG_CAPS)) {
+        const tags = Array.isArray(parsed.hashtags[platform]) ? parsed.hashtags[platform] : [];
+        parsed.hashtags[platform] = tags
+          .filter((t) => typeof t === "string" && !BANNED_GENERIC.has(t.replace(/^#/, "").toLowerCase()))
+          .slice(0, HASHTAG_CAPS[platform]);
+      }
+    } else {
+      parsed.hashtags = { tiktok: [], instagram: [], x: [], facebook: [] };
     }
 
     return res.status(200).json(parsed);

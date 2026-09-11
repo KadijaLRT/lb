@@ -19,7 +19,10 @@ export default function ExpenseModal({ open, onClose, onSubmit }) {
   async function handleSubmit(e) {
     e.preventDefault();
     const value = parseFloat(amount);
-    if (!value || value <= 0) return;
+    if (!Number.isFinite(value) || value <= 0) {
+      setError("Enter a real amount greater than $0.");
+      return;
+    }
     setSaving(true);
     setError("");
     try {

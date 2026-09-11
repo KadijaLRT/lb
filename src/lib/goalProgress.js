@@ -76,7 +76,7 @@ const TYPE_LABEL_FOR_SUMMARY = { debt: "Debt payoff", savings: "Savings", salary
 // Short per-goal lines for feeding into the coach's context — real numbers,
 // not just the goal titles, so responses can reference actual progress.
 export function summarizeGoalsProgress(goals = [], jobApps = []) {
-  const active = goals.filter((g) => g.status !== "completed");
+  const active = goals.filter((g) => g.status !== "completed" && g.status !== "paused");
   if (!active.length) return "";
   return active
     .map((g) => {

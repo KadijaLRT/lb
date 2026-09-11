@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Target, Plus, X, Trash2, Pencil, TrendingUp, GraduationCap, DollarSign, Briefcase, Import } from "lucide-react";
-import { listGoals, addGoal, updateGoal, deleteGoal, listJobApplications } from "../lib/db.js";
+import { listGoals, addGoal, updateGoal, incrementGoalAmount, deleteGoal, listJobApplications } from "../lib/db.js";
 import { computeProgress, milestoneBadge, defaultMilestones } from "../lib/goalProgress.js";
 import { parseGoalsFromText } from "../lib/parseGoalsFromText.js";
 
@@ -34,6 +34,7 @@ export default function GoalsTracker({ profile }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [amountInputs, setAmountInputs] = useState({});
+  const [busyGoalIds, setBusyGoalIds] = useState(() => new Set());
   const [importSuggestions, setImportSuggestions] = useState(null);
   const [importing, setImporting] = useState(false);
 
@@ -86,18 +87,25 @@ export default function GoalsTracker({ profile }) {
   }
 
   async function logAmount(goal, delta) {
+    if (busyGoalIds.has(goal.id)) return; // still a good UX guard (visibly disables the button while in flight) even though the backend now makes the underlying race impossible regardless
     const raw = amountInputs[goal.id];
     const amount = Number(raw);
     if (!amount) return;
     setError("");
+    setBusyGoalIds((prev) => new Set(prev).add(goal.id));
     try {
-      const nextAmount = Math.max(0, Number(goal.current_amount || 0) + delta * amount);
-      const updated = await updateGoal(goal.id, { current_amount: nextAmount });
+      const updated = await incrementGoalAmount(goal.id, delta * amount);
       setGoals((prev) => prev.map((g) => (g.id === goal.id ? updated : g)));
       setAmountInputs((prev) => ({ ...prev, [goal.id]: "" }));
     } catch (err) {
       console.error(err);
       setError("Couldn't update that goal.");
+    } finally {
+      setBusyGoalIds((prev) => {
+        const next = new Set(prev);
+        next.delete(goal.id);
+        return next;
+      });
     }
   }
 
@@ -188,29 +196,47 @@ export default function GoalsTracker({ profile }) {
   async function confirmImport() {
     setImporting(true);
     setError("");
-    try {
-      const created = [];
-      for (const s of importSuggestions) {
-        const payload = { type: s.type, title: s.title, target_date: null };
-        if (s.type === "debt") {
-          payload.starting_amount = Number(s.target_amount) || 0;
-          payload.current_amount = Number(s.target_amount) || 0;
-        } else if (s.type === "savings" || s.type === "salary") {
-          payload.target_amount = Number(s.target_amount) || 0;
-          payload.current_amount = 0;
-        } else if (s.type === "education") {
-          payload.milestones = defaultMilestones();
-        }
-        created.push(await addGoal(profile.id, payload));
+    const created = [];
+    const failedIndexes = [];
+    for (let i = 0; i < importSuggestions.length; i++) {
+      const s = importSuggestions[i];
+      const payload = { type: s.type, title: s.title, target_date: null };
+      if (s.type === "debt") {
+        payload.starting_amount = Number(s.target_amount) || 0;
+        payload.current_amount = Number(s.target_amount) || 0;
+      } else if (s.type === "savings" || s.type === "salary") {
+        payload.target_amount = Number(s.target_amount) || 0;
+        payload.current_amount = 0;
+      } else if (s.type === "education") {
+        payload.milestones = defaultMilestones();
       }
-      setGoals((prev) => [...(prev || []), ...created]);
-      setImportSuggestions(null);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Couldn't import those goals.");
-    } finally {
-      setImporting(false);
+      try {
+        created.push(await addGoal(profile.id, payload));
+      } catch (err) {
+        console.error(`Couldn't import "${s.title}":`, err);
+        failedIndexes.push(i);
+      }
     }
+    // Reflect whatever actually succeeded, even on partial failure — these
+    // are genuinely saved in the database now, so local state needs to
+    // show them regardless of whether later items in the batch failed.
+    if (created.length > 0) {
+      setGoals((prev) => [...(prev || []), ...created]);
+    }
+    if (failedIndexes.length > 0) {
+      // Keep only the ones that failed, so the user can see and retry
+      // exactly what didn't make it, instead of either losing the whole
+      // batch's progress or re-showing goals that already saved fine.
+      setImportSuggestions((prev) => prev.filter((_, i) => failedIndexes.includes(i)));
+      setError(
+        failedIndexes.length === importSuggestions.length
+          ? "Couldn't import any of those. Try again."
+          : `Imported ${created.length}, but ${failedIndexes.length} failed — review below and try again.`
+      );
+    } else {
+      setImportSuggestions(null);
+    }
+    setImporting(false);
   }
 
   return (
@@ -553,8 +579,9 @@ export default function GoalsTracker({ profile }) {
                         />
                         <button
                           type="button"
+                          disabled={busyGoalIds.has(goal.id)}
                           onClick={() => logAmount(goal, goal.type === "debt" ? -1 : 1)}
-                          className="text-xs px-2.5 py-1 rounded-full border border-line hover:border-clay text-muted hover:text-cream"
+                          className="text-xs px-2.5 py-1 rounded-full border border-line hover:border-clay text-muted hover:text-cream disabled:opacity-40"
                         >
                           {goal.type === "debt" ? "Log payment" : "Log deposit"}
                         </button>

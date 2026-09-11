@@ -30,7 +30,7 @@ export default function MicroTaskList({ tasks = [], onChange }) {
       )}
       <ul className="flex flex-col gap-2">
         {tasks.map((t, i) => (
-          <li key={i} className="flex items-center gap-3 group">
+          <li key={`${t.text}-${i}`} className="flex items-center gap-3 group">
             <button
               type="button"
               onClick={() => toggle(i)}
