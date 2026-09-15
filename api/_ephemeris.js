@@ -37,7 +37,7 @@ export const BODIES = [
 // positions are still real data the user provides, and it was being
 // silently dropped everywhere — this list is for PARSING their chart text
 // only, never for computing where they are today.
-const EXTRA_NATAL_POINTS = ["Lilith", "North Node", "South Node", "Fortune"];
+const EXTRA_NATAL_POINTS = ["Lilith", "North Node", "South Node", "Fortune", "Ascendant"];
 const NATAL_POINTS = [...BODIES, ...EXTRA_NATAL_POINTS];
 
 const DEG = Math.PI / 180;
@@ -470,4 +470,93 @@ export function parseNatalAspects(notes) {
     });
   }
   return results;
+}
+
+// ── Vedic (sidereal) astrology support ──────────────────────────────────
+//
+// Western astrology (what the rest of this file computes) uses the
+// TROPICAL zodiac, fixed to the seasons (0° Aries = spring equinox).
+// Vedic astrology uses the SIDEREAL zodiac, fixed to the actual visible
+// constellations. Because Earth's axis precesses (~50.29 arcseconds/year),
+// these two zero-points have drifted apart over time — the angular gap
+// between them is the "ayanamsa." Converting is a simple subtraction:
+// sidereal_longitude = tropical_longitude − ayanamsa(date).
+//
+// This uses the Lahiri (Chitrapaksha) ayanamsa — the standard adopted by
+// India's government Calendar Reform Committee (1955) and used by the
+// Indian Astronomical Ephemeris, Swiss Ephemeris, and most Vedic
+// software. Anchor value and precession rate verified against multiple
+// independent sources: 23°51′12″ at 00:00 UT, Jan 1 2000, growing at
+// ~50.29″/year. A linear approximation like this will differ from a
+// full nutation-corrected value by up to ~17 arcseconds at any given
+// moment (real precession has small periodic wobble on top of the
+// steady rate) — negligible for sign/nakshatra placement, which is what
+// this is used for; not claiming timing-critical (e.g. KP sub-lord)
+// precision.
+const AYANAMSA_EPOCH = Date.UTC(2000, 0, 1, 0, 0, 0); // Jan 1, 2000, 00:00 UT
+const AYANAMSA_AT_EPOCH_DEG = 23 + 51 / 60 + 12 / 3600; // 23°51'12"
+const AYANAMSA_RATE_DEG_PER_YEAR = 50.29 / 3600; // ~50.29"/year
+
+export function lahiriAyanamsa(date = new Date()) {
+  const yearsSinceEpoch = (date.getTime() - AYANAMSA_EPOCH) / (365.25 * 86400000);
+  return AYANAMSA_AT_EPOCH_DEG + AYANAMSA_RATE_DEG_PER_YEAR * yearsSinceEpoch;
+}
+
+export function toSidereal(tropicalLonDeg, date = new Date()) {
+  return normDeg(tropicalLonDeg - lahiriAyanamsa(date));
+}
+
+export function siderealSignForLongitude(tropicalLonDeg, date = new Date()) {
+  return signForLongitude(toSidereal(tropicalLonDeg, date));
+}
+
+// Today's planetary positions in the sidereal zodiac — mirrors
+// currentPlacements() but sign-mapped against the sidereal zero point.
+// Reuses the exact same underlying eclipticLongitude() calls (the real
+// physical planetary positions never change between systems, only which
+// sign boundary they're measured against), so there's no risk of drift
+// between the tropical and sidereal outputs disagreeing about where a
+// planet actually is.
+export function currentPlacementsSidereal(date = new Date()) {
+  const out = {};
+  for (const b of BODIES) {
+    out[b] = siderealSignForLongitude(eclipticLongitude(b, date), date);
+  }
+  return out;
+}
+
+// 27 nakshatras (lunar mansions), each spanning 13°20' (800 arcminutes) of
+// the sidereal zodiac, starting at 0° Aries sidereal. Each nakshatra has 4
+// padas (quarters) of 3°20' each. This is standard, universally-agreed
+// Vedic astrology data — the same 27 names and boundaries used across all
+// traditions and software, not specific to any one practitioner's system.
+export const NAKSHATRAS = [
+  "Ashwini", "Bharani", "Krittika", "Rohini", "Mrigashira", "Ardra",
+  "Punarvasu", "Pushya", "Ashlesha", "Magha", "Purva Phalguni", "Uttara Phalguni",
+  "Hasta", "Chitra", "Swati", "Vishakha", "Anuradha", "Jyeshtha",
+  "Mula", "Purva Ashadha", "Uttara Ashadha", "Shravana", "Dhanishta", "Shatabhisha",
+  "Purva Bhadrapada", "Uttara Bhadrapada", "Revati",
+];
+
+const NAKSHATRA_SPAN = 360 / 27; // 13.3333...°
+const PADA_SPAN = NAKSHATRA_SPAN / 4; // 3.3333...°
+
+// Takes a SIDEREAL longitude (already ayanamsa-corrected) and returns
+// which of the 27 nakshatras it falls in, plus the pada (1-4).
+export function getNakshatra(siderealLonDeg) {
+  const norm = normDeg(siderealLonDeg);
+  const idx = Math.floor(norm / NAKSHATRA_SPAN);
+  const withinNakshatra = norm - idx * NAKSHATRA_SPAN;
+  const pada = Math.floor(withinNakshatra / PADA_SPAN) + 1;
+  return { name: NAKSHATRAS[idx], pada };
+}
+
+// Vedic astrology's default house system — much simpler than Western
+// Placidus: each house is exactly one full sign, starting from whichever
+// sign the Ascendant falls in. House N = the Nth sign counting forward
+// from the Ascendant's sign (wrapping around the zodiac).
+export function wholeSignHouse(planetSiderealLonDeg, ascendantSiderealLonDeg) {
+  const planetSignIdx = Math.floor(normDeg(planetSiderealLonDeg) / 30);
+  const ascSignIdx = Math.floor(normDeg(ascendantSiderealLonDeg) / 30);
+  return ((planetSignIdx - ascSignIdx + 12) % 12) + 1;
 }

@@ -1,5 +1,16 @@
 import Groq from "groq-sdk";
-import { currentPlacements, parseNatalLongitudes, parseHousePlacements, parseNatalAspects, currentTransitAspects } from "./_ephemeris.js";
+import {
+  currentPlacements,
+  parseNatalLongitudes,
+  parseHousePlacements,
+  parseNatalAspects,
+  currentTransitAspects,
+  signForLongitude,
+  toSidereal,
+  siderealSignForLongitude,
+  getNakshatra,
+  wholeSignHouse,
+} from "./_ephemeris.js";
 
 const AREA_FOCUS = {
   career: "Focus on the 10th house / Midheaven, Saturn, the Sun, and Mars. Cover natural strengths, likely friction points, and what kind of work environment actually suits this chart.",
@@ -18,24 +29,32 @@ const AREA_KEY_BODIES = {
 };
 
 function buildStandardPrompt(area) {
-  return `You are talking directly to this person like a perceptive friend who happens to know astrology well — not writing a formal report. You will be given REAL, COMPUTED transit-to-natal aspect data — exact orbs and applying/separating trends calculated from actual planetary positions, not estimates. Your job is to interpret this data for the person's ${area} specifically, grounded entirely in what's given.
+  return `You are talking directly to this person like a perceptive friend who happens to know astrology well — not writing a formal report. You will be given REAL, COMPUTED data: transit-to-natal aspects (exact orbs and applying/separating trends from actual planetary positions), this chart's own permanent aspects, and — when available — real Vedic (sidereal) placements: which sidereal sign and nakshatra (lunar mansion) each planet actually falls in, computed using the Lahiri ayanamsa, plus whole-sign houses when the Ascendant is known. Your job is to interpret this data for the person's ${area} specifically, grounded entirely in what's given.
 
 ${AREA_FOCUS[area]}
 
-Voice:
-- Second person, warm, conversational. Contractions. Like you're telling a friend something you noticed about their chart over coffee, not delivering a printout.
+Interpretive approach — you'll be given BOTH systems side by side for the same real planetary positions, not two separate readings:
+- LEAD with the Vedic (sidereal) side: which sign and nakshatra a planet occupies, and its whole-sign house, are the primary lens in Vedic convention — not a decoration on top of Western aspect-pattern analysis. A nakshatra carries real, specific psychological texture (it's not just "a subdivision of a sign" — treat it as adding genuine character to how that planet's energy expresses, the way sign does but more specific).
+- Use the Western tropical sign as a real comparison point, not a footnote — when the data shows a planet landing in a DIFFERENT sign in each system (marked in the data), that's genuinely worth naming: two real, valid lenses on the same actual planetary position, sometimes agreeing, sometimes offering a different angle on the same underlying placement. When they land in the SAME sign, that's worth noting too — it means both traditions are pointing at the same thing. Don't force a comparison into every sentence, but use it where it adds something real.
+- Use the real transit and natal ASPECT data (given separately) as supporting detail underneath the sign/nakshatra/house comparison, not as the main story — this is a real shift in emphasis from a purely Western aspect-first reading.
+- If NO Vedic/comparison data is given (chart doesn't have enough detail to compute it), read the aspect data in the standard way already described below — don't force a comparison onto data that doesn't support it.
+
+Voice — depth-psychological, not fortune-telling:
+- Frame this as what's active in their inner landscape right now, not a prediction of external events. Think in terms of what's asking for attention, what pattern is surfacing, what part of them this activates — psychological, not fated. A transit isn't "this will happen to you," it's "this is what's stirring, here's what it's asking you to look at or work with."
+- It's fine to gesture at real depth-psychology ideas where they genuinely fit — an old pattern resurfacing, a part of themselves they've been avoiding, integrating something rather than "fixing" it, growth that comes through friction not around it — but in plain, warm, spoken language, never clinical or academic-sounding. Nobody actually says "your shadow self is being constellated" out loud to a friend; find the plain-English version of that idea instead.
+- Second person, warm, conversational. Contractions. Like you're telling a friend something you noticed about their chart over coffee, not delivering a printout or a therapy session transcript.
 - Still direct — warmth doesn't mean softening real observations, including ones that aren't flattering. A good friend tells you the truth kindly, not vaguely.
-- PLAIN LANGUAGE, ADHD-friendly: one idea per sentence, short sentences, no stacked clauses. Never use "orb," "transiting," "natal," "applying," or "separating" as standalone jargon — if you reference degree-closeness or timing, say it in plain words instead (e.g. "this is exact right now" instead of "0.2° orb"; "still building over the next few days" instead of "applying"; "already past its peak" instead of "separating"). You can and should name the planets and the general idea of an aspect (e.g. "Saturn is putting pressure on your Sun") — just never the technical measurement language around it. A reader with zero astrology background should follow every sentence.
-- DO NOT mechanically work through every aspect given, one sentence each, in a list-like pattern ("X is doing this to your Y. Also, A is doing that to your B. Meanwhile, C is..."). That reads like a form letter, not a friend talking. Pick the ONE aspect that matters most for this and build the reading around it — mention a second only if it genuinely adds something different, never just because it was in the data.
-- DO NOT reach for a cute, repeated metaphor for every aspect ("gentle hand," "soft kiss," "bright boost," "warm embrace" — this kind of flowery astrology-brochure language, used more than once, is exactly the pattern to avoid). Say what's actually happening in plain, direct words instead of dressing each one up the same poetic way.
+- PLAIN LANGUAGE, ADHD-friendly: one idea per sentence, short sentences, no stacked clauses. Never use "orb," "transiting," "natal," "applying," "separating," "ayanamsa," or "sidereal" as standalone jargon — if you reference degree-closeness, timing, or the Vedic/Western distinction, say it in plain words instead (e.g. "this is exact right now" instead of "0.2° orb"; "still building over the next few days" instead of "applying"; "already past its peak" instead of "separating"). You can and should name the planets, signs, nakshatras, and the general idea of an aspect — just never the technical measurement language around them. A reader with zero astrology background should follow every sentence.
+- DO NOT mechanically work through every data point given, one sentence each, in a list-like pattern ("X is doing this to your Y. Also, A is doing that to your B. Meanwhile, C is..."). That reads like a form letter, not a friend talking. Pick the ONE thing that matters most for this and build the reading around it — mention a second only if it genuinely adds something different, never just because it was in the data.
+- DO NOT reach for a cute, repeated metaphor for every point ("gentle hand," "soft kiss," "bright boost," "warm embrace" — this kind of flowery astrology-brochure language, used more than once, is exactly the pattern to avoid). Say what's actually happening in plain, direct words instead of dressing each one up the same poetic way.
 
 Hard rules for the "reading" field:
-- Use ONLY the aspects listed in the data — both the today's transit aspects AND this chart's own permanent natal aspects, whichever are given. Never invent an aspect, degree, or placement not explicitly given. You do NOT need to use every aspect given — the data has already been trimmed to the most relevant few; pick the single most significant one (smallest orb, most exact) to actually build the reading around.
+- Use ONLY the data given — transit aspects, natal aspects, and the Western/Vedic sign comparison (sidereal sign, nakshatra, whole-sign house), whichever are provided. Never invent an aspect, degree, sign, nakshatra, or placement not explicitly given, and never claim a sign changed between systems (or stayed the same) unless the data explicitly marks it that way. You do NOT need to use every data point given — it's already been trimmed to the most relevant few; pick the single most significant thing to actually build the reading around.
 - You'll be given TWO kinds of aspects: transit-to-natal (today's temporary activation — these change day to day) and natal-to-natal (permanent aspects between this person's own planets — these never change, they're core wiring). If you use both, connect them into ONE cohesive point, not two separate mini-reports stapled together.
-- Open by naming the single most exact (smallest-orb) relevant TRANSIT aspect and what it means concretely for ${area} — not generic sign-trait description. State it in plain terms per the voice rules above, not as a technical measurement.
+- Open by naming the single most significant real data point — the tightest transit aspect, or (when Vedic data is available) the most relevant sign/nakshatra/house placement — and what it means concretely for ${area}. Not generic sign-trait description. State it in plain terms per the voice rules above, not as a technical measurement.
 - Explicitly distinguish NOW from SOON in plain words: if an aspect is building, say what to watch for as it intensifies over the coming days; if it's already past its peak, say what that easing means moving forward.
-- Do not describe personality traits of the person's Sun/Moon/Rising sign in the abstract (no "Leos are natural leaders" type sentences) — every sentence should trace back to one of the specific computed aspects given.
-- If this chart's real house placements are given in the data, use them — this is what makes a reading actually personal instead of generic. A career reading should know whether this person's Sun is really in their 10th house or somewhere else entirely, and say so if it changes the picture (e.g. Sun in the 11th house makes career more about community/networks than solo achievement). Don't assume standard textbook house-sign correspondence when real data contradicts it.
+- Do not describe personality traits of the person's Sun/Moon/Rising sign in the abstract (no "Leos are natural leaders" type sentences) — every sentence should trace back to one of the specific computed data points given.
+- If this chart's real house placements are given in the data (Western or Vedic whole-sign), use them — this is what makes a reading actually personal instead of generic. A career reading should know whether this person's Sun is really in their 10th house or somewhere else entirely, and say so if it changes the picture (e.g. Sun in the 11th house makes career more about community/networks than solo achievement). Don't assume standard textbook house-sign correspondence when real data contradicts it.
 - This reading is about the person in general — their patterns, tendencies, what's genuinely happening in their chart right now. Not a goal-tracking check-in.
 - STRICT LIMIT: 130 words maximum, no exceptions. This is meant to feel like one focused thought from a friend, not a report covering everything at once.
 - Do NOT end the reading itself with an action/suggestion line — that goes in the separate action_ideas field instead, so don't duplicate it in prose.
@@ -181,7 +200,50 @@ export default async function handler(req, res) {
         ? `\n\nThis chart's own PERMANENT natal aspects relevant to ${area} (core wiring, not today's transits):\n${natalAspectLines}`
         : "";
 
-      dataBlock = `Today's exact transiting positions: ${positionsLine}\n\nActive transit-to-natal aspects relevant to ${area} (real computed data, sorted tightest first):\n${aspectLines}${houseBlock}${natalAspectBlock}`;
+      // Vedic (sidereal) layer alongside the Western (tropical) sign for
+      // each body — a genuine side-by-side, not just Vedic data in
+      // isolation. Real aspects (above) are identical in both systems
+      // (subtracting the same ayanamsa from two positions cancels out in
+      // their angular difference), so this adds the piece that genuinely
+      // differs between the two: which SIGN each planet falls in, plus
+      // nakshatra and whole-sign house for the Vedic side.
+      const ascendantTropicalLon = natalLongitudes["Ascendant"];
+      const ascendantSiderealLon = ascendantTropicalLon != null ? toSidereal(ascendantTropicalLon, now) : null;
+
+      const comparisonEntries = keyBodies
+        .filter((b) => natalLongitudes[b] != null)
+        .map((b) => {
+          const tropicalLon = natalLongitudes[b];
+          const western = signForLongitude(tropicalLon);
+          const siderealLon = toSidereal(tropicalLon, now);
+          const { sign: siderealSign, degreeInSign: siderealDegree } = siderealSignForLongitude(tropicalLon, now);
+          const { name: nakshatra, pada } = getNakshatra(siderealLon);
+          const house = ascendantSiderealLon != null ? wholeSignHouse(siderealLon, ascendantSiderealLon) : null;
+          return {
+            body: b,
+            westernSign: western.sign,
+            westernDegree: western.degreeInSign,
+            siderealSign,
+            siderealDegree,
+            nakshatra,
+            pada,
+            house,
+            signChanged: western.sign !== siderealSign,
+          };
+        });
+
+      const comparisonLines = comparisonEntries
+        .map(
+          (e) =>
+            `${e.body}: Western tropical ${e.westernDegree.toFixed(1)}° ${e.westernSign}  vs.  Vedic sidereal ${e.siderealDegree.toFixed(1)}° ${e.siderealSign} (${e.nakshatra} nakshatra, pada ${e.pada}${e.house ? `, whole-sign house ${e.house}` : ""})${e.signChanged ? "  ← different sign in each system" : "  (same sign in both systems)"}`
+        )
+        .join("\n");
+
+      const vedicBlock = comparisonLines
+        ? `\n\nWestern vs. Vedic side-by-side for this area — both real, both computed from the same actual planetary positions, only the zodiac reference point differs (Vedic uses the Lahiri ayanamsa correction):\n${comparisonLines}${ascendantSiderealLon == null ? "\n(No Ascendant found in the chart notes, so whole-sign Vedic houses can't be computed — sign and nakshatra comparisons above are still real and usable.)" : ""}`
+        : "";
+
+      dataBlock = `Today's exact transiting positions: ${positionsLine}\n\nActive transit-to-natal aspects relevant to ${area} (real computed data, sorted tightest first):\n${aspectLines}${houseBlock}${natalAspectBlock}${vedicBlock}`;
     } else {
       // No parseable natal degrees — fall back to sign-level data only.
       // Explicitly tell the model this is lower precision so it doesn't
