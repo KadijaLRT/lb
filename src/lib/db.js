@@ -329,6 +329,31 @@ export async function saveInsight(userId, area, content, forDate) {
   return data;
 }
 
+// Full natal chart reading — one row per user (unlike area readings,
+// which are keyed per day, this doesn't change day to day, so it's
+// generated on demand and cached until the user explicitly regenerates).
+export async function getFullChartReading(userId) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("full_chart_readings")
+    .select("*")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function saveFullChartReading(userId, content) {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("full_chart_readings")
+    .upsert({ user_id: userId, content, generated_at: new Date().toISOString() }, { onConflict: "user_id" })
+    .select()
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 export async function getTransactions(accountId, limit = 25) {
   if (!supabase) return [];
   const { data, error } = await supabase

@@ -92,6 +92,209 @@ state plus an internal check); and its fire-and-forget message-save calls
 (correct pattern — a pure side effect with no `setState`-after-unmount
 risk).
 
+## Restructured three of four bottom-nav tabs into nested sub-pages
+Blueprint, Content, and Finance were each one long scrolling page stacking
+3-5 unrelated components. Broke each into genuine sub-pages, navigated by
+a pill-style secondary tab row under the main header (matching the
+pattern already used for platform tabs and Go Deeper areas elsewhere in
+the app) — new shared `SubTabBar.jsx` component.
+
+- **Blueprint** → Chart (astro snapshot + full chart reading) | Goals
+  (core goals + goal tracker) | Explore (Go Deeper) | **Settings**.
+  Settings was previously a triggered modal overlay — converted it to a
+  real inline page (`SettingsModal.jsx` → `SettingsPage.jsx`, the old
+  modal file deleted, confirmed it had exactly one caller before removing
+  it) since it's now a peer sub-tab, not something you pop open and
+  close.
+- **Content** → Create (coach + brain-dump generator) | Queue (saved
+  content) | Calendar (posting tracker).
+- **Finance** → Overview (safe-to-spend, log spending, trend,
+  transactions) | Impulse Check | Jobs. The expense-logging modal stays a
+  true overlay (triggered from a button, not page content), so it's
+  rendered outside the sub-tab switch and works from the Overview page
+  regardless of which sub-tab is active.
+
+**Action Center was deliberately left as one page** — its coach reply
+directly surfaces "add to today's list" buttons that populate the task
+list shown right below it. Splitting those onto separate sub-pages would
+break the actual interaction, not just reorganize it, so it stays a
+single cohesive flow.
+
+Verified after the rewrite: zero dangling references to the deleted
+`SettingsModal`, every import in all three restructured files resolves to
+a real file, and `App.jsx`'s call into `BlueprintTab` needed no changes
+since its prop signature stayed identical.
+
+## New: Full Chart Reading, added inside Blueprint (not a new tab)
+A real, comprehensive natal chart reading — every planet, house, and
+major aspect from your chart in one reading, not the "one true thing
+today" style of the daily area readings. Lives inside the Blueprint tab
+(you chose this over a 5th bottom-nav slot) as a new collapsible section
+right under the daily vibe card.
+
+- **Reuses a table that already existed**: `full_chart_readings` was
+  built years ago for an earlier version of this exact feature that got
+  removed (noted as "safe to ignore, orphaned" in the schema at the time)
+  — no new migration needed, just new `db.js` functions using it.
+- **New endpoint** (`api/full-chart.js`): parses every point in your
+  chart notes (10 planets + Lilith/North Node/Fortune + Ascendant), not
+  just one area's key bodies. Computes the full Western/Vedic comparison
+  and every real natal aspect for all of them — verified directly against
+  your real chart data before shipping, same as every other astrology
+  feature in this build.
+- **Structured output**: overview (Big 3 synthesis), strengths (tied to
+  real harmonious placements/aspects), growth edges (tied to real
+  challenging ones, framed as patterns to work with — never character
+  verdicts), and a Vedic-layer note. Same confident, jargon-forward voice
+  and the same harmful-pattern guardrail (never diagnosing character from
+  a placement) as the rest of the astrology system.
+- **Cached, not regenerated on every view** — this data doesn't change
+  day to day like transits do, so it's generated once, saved, and shown
+  from cache until you tap Regenerate.
+
+## Reviewed the reference screenshots directly — kept what's real voice, refused what's harmful
+Went through all ten screenshots individually rather than treating them as
+one uniform "sound like this" reference. Two of them (the "moon in
+negative aspect to Pluto/Mars/Saturn... potential domestic violence"
+post, and the "Mars in Cancer... potentially violent" post with a slur)
+use natal placements to predict abuse and pathologize specific people.
+That's a real harm pattern independent of tone — didn't build toward it,
+and want to say that plainly rather than quietly skip it.
+
+The other eight (12th-house/Vedic transit threads, the Lilith etymology
+thread) are useful as genuine voice reference: confident, willing to
+state real astrology terms directly, threaded declarative structure. Used
+those to refine the voice further and, separately, added an explicit
+guardrail closing the specific failure mode the other two showed —
+distinct from the existing "never fabricate a placement" rule, since
+those posts weren't fabricating data, they were making harmful character
+judgments FROM real data. New rule: never use a placement or aspect to
+declare a person — the user or anyone they mention — abusive, violent,
+dangerous, or "toxic," regardless of how confidently real astrology
+content sometimes does exactly that. Applied to both the daily readings
+and the scenario-advice prompt (the latter especially relevant, since
+someone describing their own relationship situation could easily draw the
+model toward this exact pattern about a partner). Also fixed a real
+inconsistency the last round left behind: the scenario prompt still said
+"translate all jargon away" while the daily-reading prompt now embraces
+astrology terms directly — aligned both to the same confident register.
+
+## Real reference given for tone — rebuilt the voice around it, not another patch
+Got an actual screenshot of a real astrology-account post as the target
+tone. That changed the diagnosis: the previous few rounds treated "sounds
+computerish" as a vocabulary problem (ban jargon, add plain-English
+translations) and a structural problem (too many technical categories to
+synthesize into one thought) — both real fixes, but the reference showed
+the actual target is a different REGISTER entirely, one that directly
+contradicts a couple of my own prior rules:
+
+- The reference states astrological terms directly and confidently
+  ("venus rx in scorpio transit") — no soft plain-English translation.
+  My prior rule said translate every jargon word; that's backwards for
+  this genre.
+- It's declarative and prediction-forward ("gonna pop," "watch out") —
+  closer to real horoscope-account convention than the "psychological,
+  not fated" framing from the previous round.
+- Advice gets folded directly into the read ("believe it the first time
+  if...") rather than always held back for a separate list.
+
+Rebuilt the voice around this directly: confident, punchy, willing to
+name planets/signs/retrogrades/houses/nakshatras plainly, declarative
+rather than hedged, personality and edge encouraged. Kept the one
+non-negotiable from every round before this: everything still has to
+trace back to the real computed data — confident tone is not license to
+invent a placement or aspect that isn't there. Also removed the word cap
+entirely per direct instruction — length is whatever the one real thing
+actually needs.
+
+## Western tropical re-added as a real side-by-side comparison, not a separate thing
+Rebuilt the Vedic data block into a genuine comparison rather than a
+Vedic-only layer — every planet now shows its real Western tropical sign
+directly alongside its real Vedic sidereal sign, degree, nakshatra, and
+whole-sign house, computed from the exact same underlying planetary
+position (both are just different zero-points measured against the same
+real physical location).
+
+- Added a `signChanged` flag, computed honestly from the actual data —
+  true only when the sign genuinely differs between systems, false when
+  it doesn't. The model is explicitly told never to claim a sign changed
+  (or stayed the same) unless the data marks it that way.
+- Verified against your real chart: Sun and Moon both flip Leo → Cancer
+  (the well-known real-world case), while Venus stays in Virgo in both
+  systems (it sits late enough in the sign that the ~24° shift doesn't
+  push it over) — confirms the comparison logic is genuinely reading the
+  data correctly, not just always reporting a change.
+- Updated the interpretive instructions to actually use the comparison:
+  lead with the Vedic side (the real convention), but explicitly name it
+  when a planet lands in a different sign in each system — that's a real,
+  worth-mentioning fact about the same actual placement, not two
+  competing opinions.
+
+## New: real Vedic (sidereal) astrology layer + depth-psychological voice
+Added a genuine, verified Vedic astrology system to the daily "Go Deeper"
+readings (`career`/`friendships`/`love`/`finance`) — NOT a cosmetic
+relabeling, real astronomical computation with its own verified math.
+
+**What's real and verified:**
+- **Lahiri ayanamsa** (the standard used by India's Calendar Reform
+  Committee, Swiss Ephemeris, and most Vedic software) — computed and
+  checked against multiple independent published reference values before
+  writing any interpretation code. Jan 1 2000 anchor (23.8533°) is exact
+  by construction; Jan 1 2024 (24.19°) and Jan 1 2026 (24.22°) both landed
+  within ~0.01° of independently-published values for a linear
+  approximation — the expected precision level.
+- **Sidereal sign conversion, nakshatra placement (27 lunar mansions +
+  pada), and whole-sign houses** — all real, computed math in
+  `_ephemeris.js`, reusing the exact same underlying planetary position
+  calculations as the existing tropical system (so the two can never
+  silently disagree about where a planet actually is).
+- Ran a real external sanity check before trusting any of it: your actual
+  tropical Sun (Leo 13.9°) correctly converts to sidereal **Cancer** —
+  matching the well-known fact that a Western Leo Sun very commonly
+  becomes a Vedic Cancer Sun. Also cross-checked that the computed
+  whole-sign houses land in the same house numbers (11th) as your
+  original Western Placidus chart from early in this build — not
+  something I engineered, just a reassuring independent consistency
+  check.
+- Parser extended to recognize "Ascendant" in pasted chart text (needed
+  to anchor whole-sign houses) — verified against your real chart format.
+
+**What changed in the interpretation itself:**
+- When Vedic data is available, the reading now genuinely LEADS with sign/
+  nakshatra/whole-sign-house (the actual Vedic interpretive convention —
+  these carry the primary weight, not decoration on top of Western
+  aspect-first analysis), using the real aspect data as supporting detail
+  underneath.
+- Voice shifted toward depth-psychological framing — what's active in the
+  inner landscape, what pattern is surfacing, integration rather than
+  "fixing" — instead of external-event/fate-prediction language. Kept
+  explicitly plain-spoken (told directly: nobody says "your shadow is
+  being constellated" out loud to a friend, find the plain-English
+  version).
+- Every existing hard constraint from earlier in this build stayed
+  intact: real-data-only grounding, no fabrication, no jargon, ADHD-
+  friendly, banned motivational-poster phrases, no forced goal-connection.
+
+**Honest scope note — what this does NOT include**: I did not implement
+Vimshottari dasha (planetary period) calculations — genuinely complex,
+and higher risk of a subtle error without a way to test against a live
+reference in this sandbox. Also want to be direct about something from
+the request that led here: I did not attribute any of this output to the
+specific named practitioners requested — I have no access to their actual
+books, courses, or proprietary methodology to verify the app's output
+genuinely reflects their individual approaches, and claiming that
+connection without real grounding would be exactly the kind of
+unverifiable authority-borrowing this whole build has been careful to
+avoid elsewhere. What's here is the real, honest, buildable version:
+actual Vedic astronomical convention and a depth-psychological
+interpretive lens, not a specific person's system.
+
+**Also worth flagging**: this pass covered `astrology.js` (the daily area
+readings) only. `astrology-chat.js` (follow-up chat) and the scenario-
+advice prompt still use the previous Western-only framing — a natural
+next pass if you want the same Vedic/depth-psychological treatment there
+too.
+
 ## Real backend fix for the four race conditions found in the audit
 The frontend busy-flags added during the audit only protect against a
 race WITHIN one browser tab — they do nothing against the same user on

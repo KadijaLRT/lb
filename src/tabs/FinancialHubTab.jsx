@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Wallet, HandCoins, Briefcase } from "lucide-react";
+import SubTabBar from "../components/SubTabBar.jsx";
 import FinancePulse from "../components/FinancePulse.jsx";
 import ExpenseModal from "../components/ExpenseModal.jsx";
 import ImpulsePause from "../components/ImpulsePause.jsx";
@@ -7,7 +8,14 @@ import TransactionsAccordion from "../components/TransactionsAccordion.jsx";
 import SpendingTrend from "../components/SpendingTrend.jsx";
 import JobApplicationTracker from "../components/JobApplicationTracker.jsx";
 
+const SUB_TABS = [
+  { key: "overview", label: "Overview", icon: Wallet },
+  { key: "impulse", label: "Impulse Check", icon: HandCoins },
+  { key: "jobs", label: "Jobs", icon: Briefcase },
+];
+
 export default function FinancialHubTab({ profile, account, weekSpend, onLogExpense }) {
+  const [subTab, setSubTab] = useState("overview");
   const [modalOpen, setModalOpen] = useState(false);
   const [syncTick, setSyncTick] = useState(0);
 
@@ -16,36 +24,42 @@ export default function FinancialHubTab({ profile, account, weekSpend, onLogExpe
 
   return (
     <div className="flex flex-col gap-6">
-      <p className="text-xs uppercase tracking-[0.2em] text-muted">Financial Hub</p>
+      <SubTabBar tabs={SUB_TABS} active={subTab} onChange={setSubTab} />
 
-      <FinancePulse
-        safeToSpend={safeToSpend}
-        weeklyBudget={weeklyBudget}
-        onLogExpense={() => setModalOpen(true)}
-      />
+      {subTab === "overview" && (
+        <div className="flex flex-col gap-6">
+          <FinancePulse
+            safeToSpend={safeToSpend}
+            weeklyBudget={weeklyBudget}
+            onLogExpense={() => setModalOpen(true)}
+          />
 
-      <button
-        type="button"
-        onClick={() => setModalOpen(true)}
-        className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-clay text-ink font-medium text-sm"
-      >
-        <Plus size={16} />
-        Log spending
-      </button>
+          <button
+            type="button"
+            onClick={() => setModalOpen(true)}
+            className="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-clay text-ink font-medium text-sm"
+          >
+            <Plus size={16} />
+            Log spending
+          </button>
 
-      <ImpulsePause
-        context={
-          profile
-            ? { sun: profile.sun_sign, moon: profile.moon_sign, rising: profile.rising_sign, voice_sample: profile.content_voice_sample }
-            : undefined
-        }
-      />
+          {account && <SpendingTrend accountId={account.id} weeklyBudget={weeklyBudget} refreshKey={syncTick} />}
 
-      {account && <SpendingTrend accountId={account.id} weeklyBudget={weeklyBudget} refreshKey={syncTick} />}
+          {account && <TransactionsAccordion accountId={account.id} refreshKey={syncTick} />}
+        </div>
+      )}
 
-      <JobApplicationTracker profile={profile} />
+      {subTab === "impulse" && (
+        <ImpulsePause
+          context={
+            profile
+              ? { sun: profile.sun_sign, moon: profile.moon_sign, rising: profile.rising_sign, voice_sample: profile.content_voice_sample }
+              : undefined
+          }
+        />
+      )}
 
-      {account && <TransactionsAccordion accountId={account.id} refreshKey={syncTick} />}
+      {subTab === "jobs" && <JobApplicationTracker profile={profile} />}
 
       <ExpenseModal
         open={modalOpen}
